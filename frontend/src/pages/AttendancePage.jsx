@@ -14,7 +14,7 @@ function getTimeGreeting() {
 const DETECT_EVERY_MS = 250
 const RESULT_DISPLAY_MS = 5000
 const NO_FACE_COOLDOWN_MS = 2000
-const MIN_FACE_RATIO = 0.20
+const MIN_FACE_RATIO = 0.10   // lowered: face only needs to be 10% of frame width
 
 function getFemalVoice() {
   const voices = window.speechSynthesis.getVoices()
@@ -137,7 +137,7 @@ export default function AttendancePage() {
           try {
             const hits = await faceapi.detectAllFaces(
               video,
-              new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.7 })
+              new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.4 })
             )
 
             if (stateRef.current !== 'watching') return

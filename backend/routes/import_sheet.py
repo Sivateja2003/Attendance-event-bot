@@ -4,6 +4,8 @@ import os
 import re
 import uuid
 
+import numpy as np
+
 import requests
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -127,7 +129,7 @@ def import_from_sheet(body: ImportRequest, db: Session = Depends(get_db)):
             linkedin=row.get("linkedin", ""),
             occupation=row.get("occupation", ""),
             image_url=f"/uploads/{filename}",
-            embedding=embedding,
+            embedding=np.array(embedding, dtype=np.float32).tobytes(),
         )
         db.add(user)
         db.commit()

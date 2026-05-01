@@ -1,8 +1,10 @@
 import asyncio
+import json
+import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import text
+from sqlalchemy import text, inspect
 from database import engine, Base
 from routes import register, attendance, events, import_sheet
 import ws_manager
@@ -10,18 +12,55 @@ import os
 
 Base.metadata.create_all(bind=engine)
 
-# Add new profile columns to existing databases without losing data
-with engine.connect() as conn:
-    for col in ["email VARCHAR(255)", "phone VARCHAR(50)", "linkedin VARCHAR(255)", "occupation VARCHAR(255)"]:
-        conn.execute(text(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col}"))
-    conn.execute(text("ALTER TABLE attendance ADD COLUMN IF NOT EXISTS event_id INTEGER REFERENCES events(id)"))
-    # DB-level duplicate guard: one person per event; NULL event_id falls back to app-level date check
-    conn.execute(text("""
-        CREATE UNIQUE INDEX IF NOT EXISTS uq_attendance_user_event
-        ON attendance (user_id, event_id)
-        WHERE event_id IS NOT NULL
-    """))
-    conn.commit()
+
+def run_migrations():
+    insp = inspect(engine)
+    dialect = engine.dialect.name
+
+    user_cols = {c["name"] for c in insp.get_columns("users")}
+    att_cols = {c["name"] for c in insp.get_columns("attendance")}
+
+    with engine.begin() as conn:
+        for col, ddl in [
+            ("email", "VARCHAR(255)"),
+            ("phone", "VARCHAR(50)"),
+            ("linkedin", "VARCHAR(255)"),
+            ("occupation", "VARCHAR(255)"),
+        ]:
+            if col not in user_cols:
+                conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {ddl}"))
+
+        if "event_id" not in att_cols:
+            conn.execute(text(
+                "ALTER TABLE attendance ADD COLUMN event_id INTEGER REFERENCES events(id)"
+            ))
+
+        # Partial unique index only supported natively on Postgres; SQLite uses the
+        # UniqueConstraint declared on the Attendance model (created by create_all above).
+        if dialect == "postgresql":
+            conn.execute(text("""
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_attendance_user_event
+                ON attendance (user_id, event_id)
+                WHERE event_id IS NOT NULL
+            """))
+
+        # One-time migration: re-encode any legacy JSON-text embeddings to binary float32
+        rows = conn.execute(
+            text("SELECT id, embedding FROM users WHERE embedding IS NOT NULL")
+        ).fetchall()
+        for r in rows:
+            val = r.embedding
+            if isinstance(val, (bytes, bytearray, memoryview)):
+                continue  # already binary
+            if isinstance(val, str) and val.startswith("["):
+                arr = np.array(json.loads(val), dtype=np.float32).tobytes()
+                conn.execute(
+                    text("UPDATE users SET embedding = :e WHERE id = :i"),
+                    {"e": arr, "i": r.id},
+                )
+
+
+run_migrations()
 
 app = FastAPI(title="Face Attendance System")
 
@@ -29,6 +68,7 @@ app = FastAPI(title="Face Attendance System")
 @app.on_event("startup")
 async def startup():
     ws_manager.set_loop(asyncio.get_running_loop())
+
 
 app.add_middleware(
     CORSMiddleware,

@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router
 import AttendancePage from './pages/AttendancePage'
 import RegisterPage from './pages/RegisterPage'
 import DisplayPage from './pages/DisplayPage'
+import UsersPage from './pages/UsersPage'
+import LobbyPage from './pages/LobbyPage'
 
 function Layout() {
   const { pathname } = useLocation()
@@ -19,6 +21,12 @@ function Layout() {
             <NavLink to="/spotregister" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               Spotregister
             </NavLink>
+            <NavLink to="/lobby" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+              Who's Here
+            </NavLink>
+            <NavLink to="/users" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+              Users
+            </NavLink>
             <NavLink to="/display" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               Display
             </NavLink>
@@ -28,6 +36,8 @@ function Layout() {
       <Routes>
         <Route path="/" element={<AttendancePage />} />
         <Route path="/spotregister" element={<RegisterPage />} />
+        <Route path="/lobby" element={<LobbyPage />} />
+        <Route path="/users" element={<UsersPage />} />
         <Route path="/display" element={<DisplayPage />} />
       </Routes>
     </>

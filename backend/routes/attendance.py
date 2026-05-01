@@ -4,11 +4,12 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
 from database import get_db
-from models import Attendance
+from models import Attendance, User
 from face_service import get_embedding_from_array, b64_to_array, is_live_face
 from typing import Optional
 from datetime import datetime
 import ws_manager
+import numpy as np
 import os
 
 router = APIRouter(prefix="/api/attendance", tags=["attendance"])
@@ -20,6 +21,17 @@ MATCH_THRESHOLD = float(os.getenv("MATCH_THRESHOLD", "0.70"))
 class DetectRequest(BaseModel):
     image: str          # base64 data URL
     event_id: Optional[int] = None
+
+
+def cosine_distance(a, b):
+    """Compute cosine distance between two vectors (0 = identical, 2 = opposite)."""
+    a = np.array(a, dtype=np.float64)
+    b = np.array(b, dtype=np.float64)
+    dot = np.dot(a, b)
+    norm = np.linalg.norm(a) * np.linalg.norm(b)
+    if norm == 0:
+        return 2.0
+    return 1.0 - dot / norm
 
 
 @router.post("/detect")
@@ -50,31 +62,40 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
             print("[detect] DeepFace could not extract embedding")
             return {"status": "no_face"}
 
-        # Build the vector literal directly — avoids SQLAlchemy confusing
-        # ':emb::vector' (named param + PG cast) as a malformed parameter name.
-        # Safe: embedding_str is a list of floats from DeepFace, not user input.
-        embedding_str = "[" + ",".join(map(str, embedding)) + "]"
+        # Fetch all users and find the best match using cosine distance in Python
+        users = db.execute(
+            text("SELECT id, name, email, phone, linkedin, occupation, image_url, embedding FROM users WHERE embedding IS NOT NULL")
+        ).fetchall()
 
-        row = db.execute(
-            text(f"""
-                SELECT id, name, email, phone, linkedin, occupation, image_url,
-                       embedding <=> '{embedding_str}'::vector AS distance
-                FROM users
-                ORDER BY embedding <=> '{embedding_str}'::vector
-                LIMIT 1
-            """)
-        ).fetchone()
-
-        if row is None:
+        if not users:
             return {"status": "no_users_registered"}
 
-        print(f"[detect] best match: '{row.name}' distance={row.distance:.4f} confidence={CONFIDENCE_THRESHOLD} match={MATCH_THRESHOLD}")
+        best_match = None
+        best_distance = float("inf")
 
-        if row.distance > MATCH_THRESHOLD:
-            return {"status": "not_registered", "distance": round(row.distance, 4)}
+        for user in users:
+            try:
+                user_embedding = np.frombuffer(user.embedding, dtype=np.float32)
+                dist = cosine_distance(embedding, user_embedding)
+                if dist < best_distance:
+                    best_distance = dist
+                    best_match = user
+            except (TypeError, ValueError):
+                continue
 
-        if row.distance > CONFIDENCE_THRESHOLD:
-            return {"status": "low_confidence", "distance": round(row.distance, 4)}
+        if best_match is None:
+            return {"status": "no_users_registered"}
+
+        row = best_match
+        distance = best_distance
+
+        print(f"[detect] best match: '{row.name}' distance={distance:.4f} confidence={CONFIDENCE_THRESHOLD} match={MATCH_THRESHOLD}")
+
+        if distance > MATCH_THRESHOLD:
+            return {"status": "not_registered", "distance": round(distance, 4)}
+
+        if distance > CONFIDENCE_THRESHOLD:
+            return {"status": "low_confidence", "distance": round(distance, 4)}
 
         # Event-specific enrollment check
         already_attended = False
@@ -95,7 +116,7 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
                 return {
                     "status": "not_registered_for_event",
                     "user": {"name": row.name},
-                    "distance": round(row.distance, 4),
+                    "distance": round(distance, 4),
                 }
 
             if record.status == "present":
@@ -103,8 +124,8 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
             else:
                 # status = "enrolled" → first face scan, mark as present
                 db.execute(
-                    text("UPDATE attendance SET status='present', timestamp=NOW() WHERE id=:aid"),
-                    {"aid": record.id},
+                    text("UPDATE attendance SET status='present', timestamp=:ts WHERE id=:aid"),
+                    {"aid": record.id, "ts": datetime.utcnow()},
                 )
                 db.commit()
         else:
@@ -147,11 +168,45 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
                 "image_url": row.image_url,
                 "already_attended": already_attended,
             },
-            "distance": round(row.distance, 4),
+            "distance": round(distance, 4),
         }
     except Exception as e:
         print(f"[detect] unexpected error: {e}")
         return {"status": "error"}
+
+
+@router.get("/present")
+def present_attendees(event_id: Optional[int] = None, db: Session = Depends(get_db)):
+    """Full profiles of everyone who has checked in (status=present) for an event."""
+    query = """
+        SELECT u.id, u.name, u.email, u.phone, u.linkedin, u.occupation,
+               u.image_url, a.timestamp, e.name AS event_name
+        FROM attendance a
+        JOIN users u ON u.id = a.user_id
+        LEFT JOIN events e ON e.id = a.event_id
+        WHERE a.status = 'present'
+    """
+    params = {}
+    if event_id is not None:
+        query += " AND a.event_id = :eid"
+        params["eid"] = event_id
+    query += " ORDER BY a.timestamp DESC"
+
+    rows = db.execute(text(query), params).fetchall()
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "email": r.email,
+            "phone": r.phone,
+            "linkedin": r.linkedin,
+            "occupation": r.occupation,
+            "image_url": r.image_url,
+            "checked_in_at": r.timestamp,
+            "event_name": r.event_name,
+        }
+        for r in rows
+    ]
 
 
 @router.get("/logs")

@@ -22,6 +22,15 @@ frontend/node_modules/
 # Build output
 frontend/dist/
 
+# SQLite database files
+backend/face_auth.db
+backend/face_auth.db-journal
+backend/face_auth.db-wal
+backend/face_auth.db-shm
+
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+backend/install_log.txt

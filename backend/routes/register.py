@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import User, Attendance, Event
 from face_service import get_embedding, save_upload_bytes, save_base64_image, UPLOAD_DIR
+import numpy as np
 import os
 
 router = APIRouter(prefix="/api/register", tags=["register"])
@@ -52,7 +53,7 @@ async def register_user(
         linkedin=linkedin.strip() if linkedin else None,
         occupation=occupation.strip() if occupation else None,
         image_url=image_url,
-        embedding=embedding,
+        embedding=np.array(embedding, dtype=np.float32).tobytes(),
     )
     db.add(user)
     db.commit()

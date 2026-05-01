@@ -1,5 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint
-from pgvector.sqlalchemy import Vector
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, LargeBinary
 from datetime import datetime
 from database import Base
 
@@ -14,7 +13,7 @@ class User(Base):
     linkedin = Column(String(255))
     occupation = Column(String(255))
     image_url = Column(String)
-    embedding = Column(Vector(128))
+    embedding = Column(LargeBinary)  # np.float32 bytes, 128 floats * 4 bytes = 512 bytes
     registered_at = Column(DateTime, default=datetime.utcnow)
 
 
