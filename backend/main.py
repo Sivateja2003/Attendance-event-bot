@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text, inspect
 from database import engine, Base
-from routes import register, attendance, events, import_sheet
+from routes import register, attendance, events, import_sheet, auth as auth_routes, me as me_routes
 import ws_manager
 import os
 
@@ -44,6 +44,13 @@ def run_migrations():
                 WHERE event_id IS NOT NULL
             """))
 
+        for col, ddl in [
+            ("password_hash", "VARCHAR(255)"),
+            ("role", "VARCHAR(20) DEFAULT 'user'"),
+        ]:
+            if col not in user_cols:
+                conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {ddl}"))
+
         # One-time migration: re-encode any legacy JSON-text embeddings to binary float32
         rows = conn.execute(
             text("SELECT id, embedding FROM users WHERE embedding IS NOT NULL")
@@ -61,6 +68,30 @@ def run_migrations():
 
 
 run_migrations()
+
+
+def bootstrap_admin():
+    admin_email = os.getenv("ADMIN_EMAIL")
+    admin_password = os.getenv("ADMIN_PASSWORD")
+    if not admin_email or not admin_password:
+        return
+    from auth import hash_password
+    with engine.begin() as conn:
+        existing = conn.execute(
+            text("SELECT id FROM users WHERE role = 'admin' LIMIT 1")
+        ).fetchone()
+        if existing:
+            return
+        conn.execute(
+            text(
+                "INSERT INTO users (name, email, password_hash, role, registered_at) "
+                "VALUES (:n, :e, :p, 'admin', CURRENT_TIMESTAMP)"
+            ),
+            {"n": "Admin", "e": admin_email, "p": hash_password(admin_password)},
+        )
+
+
+bootstrap_admin()
 
 app = FastAPI(title="Face Attendance System")
 
@@ -82,6 +113,8 @@ upload_dir = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(upload_dir, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=upload_dir), name="uploads")
 
+app.include_router(auth_routes.router)
+app.include_router(me_routes.router)
 app.include_router(register.router)
 app.include_router(attendance.router)
 app.include_router(events.router)

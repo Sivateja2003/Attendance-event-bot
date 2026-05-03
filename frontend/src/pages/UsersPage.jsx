@@ -151,13 +151,15 @@ export default function UsersPage() {
                       <p className="muted" style={{ fontSize: 13 }}>No additional details on record.</p>
                     )}
 
-                    <button
-                      className="btn-delete-full"
-                      disabled={deleting === user.id}
-                      onClick={e => { e.stopPropagation(); handleDelete(user) }}
-                    >
-                      {deleting === user.id ? 'Deleting...' : '✕ Delete User'}
-                    </button>
+                    {user.role !== 'admin' && (
+                      <button
+                        className="btn-delete-full"
+                        disabled={deleting === user.id}
+                        onClick={e => { e.stopPropagation(); handleDelete(user) }}
+                      >
+                        {deleting === user.id ? 'Deleting...' : '✕ Delete User'}
+                      </button>
+                    )}
                   </div>
                 )}
 

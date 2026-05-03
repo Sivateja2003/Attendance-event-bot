@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Cookie, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
+from auth import require_admin
 from database import get_db
 from models import Attendance, User
 from face_service import get_embedding_from_array, b64_to_array, is_live_face
@@ -64,7 +65,7 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
 
         # Fetch all users and find the best match using cosine distance in Python
         users = db.execute(
-            text("SELECT id, name, email, phone, linkedin, occupation, image_url, embedding FROM users WHERE embedding IS NOT NULL")
+            text("SELECT id, name, email, phone, linkedin, occupation, image_url, embedding, role FROM users WHERE embedding IS NOT NULL")
         ).fetchall()
 
         if not users:
@@ -155,6 +156,7 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
                 "occupation": row.occupation,
                 "image_url": row.image_url,
                 "already_attended": already_attended,
+                "role": row.role,
             },
             "event_name": event_name,
             "timestamp": datetime.utcnow().isoformat(),
@@ -176,8 +178,22 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/present")
-def present_attendees(event_id: Optional[int] = None, db: Session = Depends(get_db)):
+def present_attendees(
+    event_id: Optional[int] = None,
+    access_token: Optional[str] = Cookie(default=None),
+    db: Session = Depends(get_db),
+):
     """Full profiles of everyone who has checked in (status=present) for an event."""
+    # Determine caller role to decide whether to hide admin accounts
+    caller_role = None
+    if access_token:
+        try:
+            from auth import decode_token
+            payload = decode_token(access_token)
+            caller_role = payload.get("role")
+        except Exception:
+            pass
+
     query = """
         SELECT u.id, u.name, u.email, u.phone, u.linkedin, u.occupation,
                u.image_url, a.timestamp, e.name AS event_name
@@ -190,6 +206,8 @@ def present_attendees(event_id: Optional[int] = None, db: Session = Depends(get_
     if event_id is not None:
         query += " AND a.event_id = :eid"
         params["eid"] = event_id
+    if caller_role != "admin":
+        query += " AND (u.role IS NULL OR u.role != 'admin')"
     query += " ORDER BY a.timestamp DESC"
 
     rows = db.execute(text(query), params).fetchall()
@@ -209,7 +227,7 @@ def present_attendees(event_id: Optional[int] = None, db: Session = Depends(get_
     ]
 
 
-@router.get("/logs")
+@router.get("/logs", dependencies=[Depends(require_admin)])
 def attendance_logs(event_id: Optional[int] = None, db: Session = Depends(get_db)):
     if event_id is not None:
         rows = db.execute(

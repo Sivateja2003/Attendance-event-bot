@@ -15,6 +15,8 @@ class User(Base):
     image_url = Column(String)
     embedding = Column(LargeBinary)  # np.float32 bytes, 128 floats * 4 bytes = 512 bytes
     registered_at = Column(DateTime, default=datetime.utcnow)
+    password_hash = Column(String(255), nullable=True)
+    role = Column(String(20), nullable=False, default="user")
 
 
 class Event(Base):

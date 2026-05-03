@@ -1307,6 +1307,142 @@ html, body, #root {
   color: rgba(255,255,255,0.35);
   font-variant-numeric: tabular-nums;
 }
+
+/* ── Nav user area ── */
+.nav-user-area {
+  display: flex; align-items: center; gap: 10px; margin-left: 8px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+.nav-user-name {
+  font-size: 13px; font-weight: 600; color: var(--text);
+  max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.nav-logout-btn {
+  padding: 5px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.nav-logout-btn:hover { color: var(--accent-red); border-color: var(--accent-red); }
+
+/* ── Auth loading ── */
+.auth-loading {
+  display: flex; align-items: center; justify-content: center;
+  min-height: calc(100vh - 56px);
+  color: var(--muted); font-size: 15px;
+}
+
+/* ── Login Page ── */
+.login-page {
+  display: flex; align-items: center; justify-content: center;
+  min-height: calc(100vh - 56px);
+  padding: 24px;
+  background: var(--bg);
+}
+.login-card {
+  width: 100%; max-width: 420px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 40px 36px 32px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+}
+.login-header { text-align: center; margin-bottom: 32px; }
+.login-logo {
+  width: 56px; height: 56px; border-radius: 16px;
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 900;
+  margin: 0 auto 16px;
+}
+.login-title { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 6px; }
+.login-sub { font-size: 14px; color: var(--muted); }
+.login-form { display: flex; flex-direction: column; gap: 18px; }
+.login-footer { margin-top: 24px; text-align: center; font-size: 13px; color: var(--muted); }
+.login-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+.login-link:hover { text-decoration: underline; }
+
+/* ── User Portal ── */
+.up-page {
+  min-height: calc(100vh - 56px);
+  background: var(--bg);
+  padding: 36px 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+.up-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.up-section-title {
+  font-size: 20px; font-weight: 800; letter-spacing: -0.5px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.up-loading { color: var(--muted); font-size: 14px; }
+
+/* Profile card */
+.up-profile-card {
+  display: flex; gap: 28px; align-items: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 28px;
+}
+@media (max-width: 500px) { .up-profile-card { flex-direction: column; align-items: center; } }
+.up-profile-photo {
+  width: 100px; height: 100px;
+  border-radius: 50%; object-fit: cover;
+  border: 3px solid var(--accent);
+  flex-shrink: 0;
+}
+.up-profile-avatar {
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 38px; font-weight: 800;
+  border: 3px solid var(--accent);
+  flex-shrink: 0;
+}
+.up-profile-info { flex: 1; }
+.up-profile-name { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; }
+.up-profile-occupation { font-size: 14px; color: var(--muted); margin-bottom: 14px; }
+.up-profile-details { display: flex; flex-direction: column; gap: 10px; }
+.up-detail-row { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text); }
+.up-detail-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+
+/* Arrivals header */
+.up-arrivals-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+}
+.up-event-select {
+  padding: 8px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 14px; font-weight: 600;
+  cursor: pointer; outline: none;
+  transition: border-color 0.15s;
+}
+.up-event-select:focus { border-color: var(--accent); }
+.up-event-badge {
+  font-size: 13px; font-weight: 700;
+  color: var(--accent);
+  background: rgba(108,99,255,0.1);
+  border: 1px solid rgba(108,99,255,0.25);
+  padding: 5px 14px; border-radius: 999px;
+}
+.up-count-row { margin-bottom: -8px; }
 .dp-details {
   display: flex;
   flex-direction: column;

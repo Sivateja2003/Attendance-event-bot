@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from auth import require_admin
 from database import get_db
 from face_service import UPLOAD_DIR, get_embedding
 from models import Attendance, Event, User
@@ -51,7 +52,7 @@ class ImportRequest(BaseModel):
     sheet_url: str
 
 
-@router.post("/google-sheet")
+@router.post("/google-sheet", dependencies=[Depends(require_admin)])
 def import_from_sheet(body: ImportRequest, db: Session = Depends(get_db)):
     # 1. Build CSV export URL
     try:

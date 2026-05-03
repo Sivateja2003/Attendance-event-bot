@@ -3,13 +3,14 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import User, Attendance, Event
 from face_service import get_embedding, save_upload_bytes, save_base64_image, UPLOAD_DIR
+from auth import require_admin
 import numpy as np
 import os
 
 router = APIRouter(prefix="/api/register", tags=["register"])
 
 
-@router.post("")
+@router.post("", dependencies=[Depends(require_admin)])
 async def register_user(
     name: str = Form(...),
     email: str = Form(None),
@@ -72,9 +73,9 @@ async def register_user(
     }
 
 
-@router.get("/users")
+@router.get("/users", dependencies=[Depends(require_admin)])
 def list_users(db: Session = Depends(get_db)):
-    users = db.query(User).order_by(User.registered_at.desc()).all()
+    users = db.query(User).filter(User.role != "admin").order_by(User.registered_at.desc()).all()
     return [
         {
             "id": u.id,
@@ -85,16 +86,19 @@ def list_users(db: Session = Depends(get_db)):
             "occupation": u.occupation,
             "image_url": u.image_url,
             "registered_at": u.registered_at,
+            "role": u.role,
         }
         for u in users
     ]
 
 
-@router.delete("/users/{user_id}")
+@router.delete("/users/{user_id}", dependencies=[Depends(require_admin)])
 def delete_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
+    if user.role == "admin":
+        raise HTTPException(status_code=403, detail="Admin accounts cannot be deleted.")
 
     db.query(Attendance).filter(Attendance.user_id == user_id).delete()
 
