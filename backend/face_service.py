@@ -51,16 +51,18 @@ def get_embedding(image_path: str, enforce: bool = True) -> list | None:
 
 
 def get_embedding_from_array(img_array: np.ndarray) -> list | None:
-    """Embedding from a numpy array frame for attendance scanning.
+    """Embedding from a pre-cropped face crop sent by the frontend.
 
-    Uses the same opencv detector as registration so both embeddings sit in the
-    same vector space — critical for accurate cosine-distance matching.
+    Uses enforce_detection=True so a failed detection returns None rather than
+    silently embedding the whole image (which produces garbage embeddings that
+    never match registered faces).
     """
     try:
+        img_rgb = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB)
         result = DeepFace.represent(
-            img_path=img_array,
+            img_path=img_rgb,
             model_name=MODEL_NAME,
-            enforce_detection=False,
+            enforce_detection=True,
             detector_backend=DETECTOR,
         )
         return result[0]["embedding"]

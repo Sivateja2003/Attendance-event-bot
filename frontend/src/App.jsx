@@ -14,7 +14,7 @@ function Nav() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
-  if (pathname === '/display') return null
+  if (pathname === '/display' || pathname === '/tv') return null
 
   async function handleLogout() {
     await logout()
@@ -50,9 +50,6 @@ function Nav() {
             <NavLink to="/users" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               Users
             </NavLink>
-            <NavLink to="/display" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-              Display
-            </NavLink>
           </>
         )}
 
@@ -83,6 +80,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<SignupPage />} />
           <Route path="/display" element={<DisplayPage />} />
+          <Route path="/tv" element={<DisplayPage />} />
 
           {/* Admin-only routes */}
           <Route path="/" element={<RequireAuth role="admin"><AttendancePage /></RequireAuth>} />

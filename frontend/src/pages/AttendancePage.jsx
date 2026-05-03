@@ -153,12 +153,20 @@ export default function AttendancePage() {
               const frameWidth = video.videoWidth || video.clientWidth
               const faceWidth = hits[0].box.width
               if (faceWidth / frameWidth >= MIN_FACE_RATIO) {
-                const imageSrc = webcamRef.current?.getScreenshot()
-                if (imageSrc) {
-                  setState('identifying')
-                  await recognitionRef.current(imageSrc)
-                  return
-                }
+                const { x, y, width: fw, height: fh } = hits[0].box
+                const pad = Math.round(fw * 0.3)
+                const sx = Math.max(0, Math.round(x - pad))
+                const sy = Math.max(0, Math.round(y - pad))
+                const sw = Math.min(video.videoWidth, Math.round(fw + pad * 2))
+                const sh = Math.min(video.videoHeight, Math.round(fh + pad * 2))
+                const cropCanvas = document.createElement('canvas')
+                cropCanvas.width = sw
+                cropCanvas.height = sh
+                cropCanvas.getContext('2d').drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh)
+                const imageSrc = cropCanvas.toDataURL('image/jpeg', 0.85)
+                setState('identifying')
+                await recognitionRef.current(imageSrc)
+                return
               }
             }
           } catch {

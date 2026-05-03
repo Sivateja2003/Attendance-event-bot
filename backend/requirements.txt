@@ -1,22 +1,29 @@
+# Web framework
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
+python-multipart==0.0.12
+gunicorn
 
+# Database
+sqlalchemy==2.0.36
+
+# Face recognition / ML
 deepface==0.0.93
 tensorflow==2.16.1
+tf-keras               # required for DeepFace compatibility with TF 2.16+
+opencv-python==4.11.0.86
+numpy
 torch
 torchvision
 
+# Authentication
+python-jose[cryptography]==3.3.0
+bcrypt==4.0.1
 
-sqlalchemy==2.0.36
-
-python-multipart==0.0.12
+# Utilities
 python-dotenv==1.0.1
-
 Pillow==10.4.0
 requests==2.32.3
 
-gunicorn
+# Dev / load testing
 locust==2.32.3
-
-python-jose[cryptography]==3.3.0
-bcrypt==4.0.1
