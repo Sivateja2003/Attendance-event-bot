@@ -11,7 +11,11 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/face_auth")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+if DATABASE_URL.startswith("sqlite"):
+    connect_args = {"check_same_thread": False}
+else:
+    connect_args = {"connect_timeout": 10}
+
 engine = create_engine(
     DATABASE_URL,
     connect_args=connect_args,

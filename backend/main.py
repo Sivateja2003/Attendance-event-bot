@@ -89,11 +89,14 @@ app = FastAPI(title="Face Attendance System")
 
 @app.on_event("startup")
 async def startup():
-    # Bind to port first, then initialize DB so Render sees the port open
     ws_manager.set_loop(asyncio.get_running_loop())
-    Base.metadata.create_all(bind=engine)
-    run_migrations()
-    bootstrap_admin()
+    try:
+        Base.metadata.create_all(bind=engine)
+        run_migrations()
+        bootstrap_admin()
+        print("[startup] Database ready")
+    except Exception as e:
+        print(f"[startup] DB init failed (app still starts): {e}")
 
 
 _origins_env = os.getenv("ALLOW_ORIGINS", "http://localhost:5173,http://localhost:3000")
