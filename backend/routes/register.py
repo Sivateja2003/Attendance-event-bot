@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
@@ -41,7 +42,8 @@ async def register_user(
         filepath = save_base64_image(image_base64)
         image_url = f"/uploads/{os.path.basename(filepath)}"
 
-    embedding = get_embedding(filepath)
+    loop = asyncio.get_event_loop()
+    embedding = await loop.run_in_executor(None, get_embedding, filepath)
     if embedding is None:
         if os.path.exists(filepath):
             os.remove(filepath)
@@ -60,7 +62,6 @@ async def register_user(
     db.commit()
     db.refresh(user)
 
-    # Enroll the user in the selected event only (face scan will mark them as "present")
     if event_id is not None:
         db.add(Attendance(user_id=user.id, event_id=event_id, status="enrolled"))
         db.commit()

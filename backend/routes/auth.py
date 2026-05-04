@@ -1,3 +1,4 @@
+import asyncio
 import os
 
 import numpy as np
@@ -94,7 +95,8 @@ async def signup(
         filepath = save_base64_image(image_base64)
         image_url = f"/uploads/{os.path.basename(filepath)}"
 
-    embedding = get_embedding(filepath)
+    loop = asyncio.get_event_loop()
+    embedding = await loop.run_in_executor(None, get_embedding, filepath)
     if embedding is None:
         if os.path.exists(filepath):
             os.remove(filepath)
