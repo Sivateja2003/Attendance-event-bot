@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../auth'
+import { API_BASE, WS_BASE } from '../config'
 
 export default function UserPortalPage() {
   const { user } = useAuth()
@@ -16,7 +17,7 @@ export default function UserPortalPage() {
 
   /* ── Load own profile ── */
   useEffect(() => {
-    fetch('/api/me/profile')
+    fetch(`${API_BASE}/api/me/profile`)
       .then(r => r.json())
       .then(data => setProfile(data))
       .catch(() => {})
@@ -24,7 +25,7 @@ export default function UserPortalPage() {
 
   /* ── Load enrolled events ── */
   useEffect(() => {
-    fetch('/api/me/events')
+    fetch(`${API_BASE}/api/me/events`)
       .then(r => r.json())
       .then(data => {
         setMyEvents(data)
@@ -36,7 +37,7 @@ export default function UserPortalPage() {
   /* ── Fetch attendees for selected event ── */
   const fetchAttendees = useCallback((eventId) => {
     setLoading(true)
-    const url = eventId ? `/api/attendance/present?event_id=${eventId}` : '/api/attendance/present'
+    const url = eventId ? `${API_BASE}/api/attendance/present?event_id=${eventId}` : `${API_BASE}/api/attendance/present`
     fetch(url)
       .then(r => r.json())
       .then(data => setAttendees(data))
@@ -53,8 +54,7 @@ export default function UserPortalPage() {
     let cancelled = false
     function connect() {
       if (cancelled) return
-      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const ws = new WebSocket(`${proto}//${window.location.host}/ws/display`)
+      const ws = new WebSocket(`${WS_BASE}/ws/display`)
       wsRef.current = ws
 
       ws.onmessage = (e) => {

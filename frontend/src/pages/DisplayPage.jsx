@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { API_BASE, WS_BASE } from '../config'
 
 const DISPLAY_DURATION_MS = 7000
-const WS_URL = `ws://${window.location.hostname}:8000/ws/display`
+const WS_URL = `${WS_BASE}/ws/display`
 
 function Clock() {
   const [time, setTime] = useState(new Date())
@@ -57,7 +58,7 @@ function PersonCard({ data }) {
       <div className="dp-photo-side">
         {user.image_url ? (
           <img
-            src={`http://${window.location.hostname}:8000${user.image_url}`}
+            src={`${API_BASE}${user.image_url}`}
             alt={user.name}
             className="dp-photo"
           />

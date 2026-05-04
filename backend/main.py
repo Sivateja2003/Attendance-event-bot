@@ -101,9 +101,12 @@ async def startup():
     ws_manager.set_loop(asyncio.get_running_loop())
 
 
+_origins_env = os.getenv("ALLOW_ORIGINS", "http://localhost:5173,http://localhost:3000")
+_allowed_origins = [o.strip() for o in _origins_env.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

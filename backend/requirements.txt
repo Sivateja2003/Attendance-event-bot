@@ -6,6 +6,7 @@ gunicorn
 
 # Database
 sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
 
 # Face recognition / ML
 deepface==0.0.93

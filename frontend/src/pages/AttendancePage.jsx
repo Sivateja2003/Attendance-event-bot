@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import Webcam from 'react-webcam'
 import * as faceapi from '@vladmandic/face-api'
+import { API_BASE } from '../config'
 
 const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model'
 
@@ -81,7 +82,7 @@ export default function AttendancePage() {
 
   async function fetchEvents() {
     try {
-      const res = await fetch('/api/events')
+      const res = await fetch(`${API_BASE}/api/events`)
       const data = await res.json()
       setEvents(data)
     } catch {
@@ -94,7 +95,7 @@ export default function AttendancePage() {
     if (!name) return
     setEventLoading(true)
     try {
-      const res = await fetch('/api/events', {
+      const res = await fetch(`${API_BASE}/api/events`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
@@ -112,7 +113,7 @@ export default function AttendancePage() {
   async function handleDeleteEvent(e, event) {
     e.stopPropagation()
     if (!window.confirm(`Delete event "${event.name}"? This cannot be undone.`)) return
-    await fetch(`/api/events/${event.id}`, { method: 'DELETE' })
+    await fetch(`${API_BASE}/api/events/${event.id}`, { method: 'DELETE' })
     setEvents(prev => prev.filter(ev => ev.id !== event.id))
     if (selectedEvent?.id === event.id) setSelectedEvent(null)
   }
@@ -183,7 +184,7 @@ export default function AttendancePage() {
 
   const handleRecognition = async (imageSrc) => {
     try {
-      const res = await fetch('/api/attendance/detect', {
+      const res = await fetch(`${API_BASE}/api/attendance/detect`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: imageSrc, event_id: selectedEvent?.id ?? null }),

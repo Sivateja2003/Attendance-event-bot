@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { API_BASE, WS_BASE } from '../config'
 
 export default function LobbyPage() {
   const [events, setEvents] = useState([])
@@ -13,7 +14,7 @@ export default function LobbyPage() {
 
   /* ── load events on mount ── */
   useEffect(() => {
-    fetch('/api/events')
+    fetch(`${API_BASE}/api/events`)
       .then(r => r.json())
       .then(data => {
         setEvents(data)
@@ -25,7 +26,7 @@ export default function LobbyPage() {
   /* ── fetch checked-in list whenever event changes ── */
   const fetchAttendees = useCallback((eventId) => {
     setLoading(true)
-    const url = eventId ? `/api/attendance/present?event_id=${eventId}` : '/api/attendance/present'
+    const url = eventId ? `${API_BASE}/api/attendance/present?event_id=${eventId}` : `${API_BASE}/api/attendance/present`
     fetch(url)
       .then(r => r.json())
       .then(data => setAttendees(data))
@@ -42,8 +43,7 @@ export default function LobbyPage() {
     let cancelled = false
     function connect() {
       if (cancelled) return
-      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const ws = new WebSocket(`${proto}//${window.location.host}/ws/display`)
+      const ws = new WebSocket(`${WS_BASE}/ws/display`)
       wsRef.current = ws
 
       ws.onmessage = (e) => {

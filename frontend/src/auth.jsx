@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { API_BASE } from './config'
 
 const AuthContext = createContext(null)
 
@@ -7,7 +8,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(undefined) // undefined=loading, null=logged-out, obj=logged-in
 
   useEffect(() => {
-    fetch('/api/auth/me')
+    fetch(`${API_BASE}/api/auth/me`)
       .then(r => (r.ok ? r.json() : null))
       .then(data => setUser(data))
       .catch(() => setUser(null))
@@ -17,7 +18,7 @@ export function AuthProvider({ children }) {
     const fd = new FormData()
     fd.append('email', email)
     fd.append('password', password)
-    const res = await fetch('/api/auth/login', { method: 'POST', body: fd })
+    const res = await fetch(`${API_BASE}/api/auth/login`, { method: 'POST', body: fd })
     if (!res.ok) {
       const data = await res.json()
       throw new Error(data.detail || 'Login failed.')
@@ -28,7 +29,7 @@ export function AuthProvider({ children }) {
   }
 
   async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' })
+    await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST' })
     setUser(null)
   }
 

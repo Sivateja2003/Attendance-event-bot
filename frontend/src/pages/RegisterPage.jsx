@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import Webcam from 'react-webcam'
+import { API_BASE } from '../config'
 
 export default function RegisterPage() {
   const webcamRef = useRef(null)
@@ -17,7 +18,7 @@ export default function RegisterPage() {
   const [selectedEvent, setSelectedEvent] = useState('')
 
   useEffect(() => {
-    fetch('/api/events')
+    fetch(`${API_BASE}/api/events`)
       .then(r => r.json())
       .then(data => setEvents(data))
       .catch(() => {})
@@ -72,7 +73,7 @@ export default function RegisterPage() {
     else fd.append('image_base64', captured)
 
     try {
-      const res = await fetch('/api/register', { method: 'POST', body: fd })
+      const res = await fetch(`${API_BASE}/api/register`, { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok) {
         showStatus('error', data.detail || 'Registration failed.')
@@ -102,7 +103,7 @@ export default function RegisterPage() {
     setImporting(true)
     setImportResult(null)
     try {
-      const res = await fetch('/api/import/google-sheet', {
+      const res = await fetch(`${API_BASE}/api/import/google-sheet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sheet_url: sheetUrl.trim() }),
