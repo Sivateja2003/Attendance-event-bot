@@ -4,6 +4,7 @@ import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy import text, inspect
 from database import engine, Base
 from routes import register, attendance, events, import_sheet, auth as auth_routes, me as me_routes
@@ -137,6 +138,21 @@ async def display_ws(websocket: WebSocket):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# ── Serve React frontend (must be last) ───────────────────────────────────────
+_frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+if os.path.exists(_frontend_dist):
+    _assets_dir = os.path.join(_frontend_dist, "assets")
+    if os.path.exists(_assets_dir):
+        app.mount("/assets", StaticFiles(directory=_assets_dir), name="frontend-assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        candidate = os.path.join(_frontend_dist, full_path)
+        if os.path.isfile(candidate):
+            return FileResponse(candidate)
+        return FileResponse(os.path.join(_frontend_dist, "index.html"))
 
 
 if __name__ == "__main__":

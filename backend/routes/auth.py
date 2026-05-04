@@ -2,7 +2,6 @@ import os
 
 import numpy as np
 
-IS_PRODUCTION = os.getenv("RENDER") is not None
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -21,8 +20,8 @@ def _set_auth_cookie(response: Response, user: User) -> dict:
         key="access_token",
         value=token,
         httponly=True,
-        samesite="none" if IS_PRODUCTION else "lax",
-        secure=IS_PRODUCTION,
+        samesite="lax",
+        secure=os.getenv("RENDER") is not None,
         max_age=7 * 24 * 3600,
     )
     return {"id": user.id, "name": user.name, "email": user.email, "role": user.role}
@@ -45,7 +44,7 @@ def login(
 
 @router.post("/logout")
 def logout(response: Response):
-    response.delete_cookie("access_token", samesite="none" if IS_PRODUCTION else "lax", secure=IS_PRODUCTION)
+    response.delete_cookie("access_token", samesite="lax", secure=os.getenv("RENDER") is not None)
     return {"success": True}
 
 
