@@ -1,7 +1,7 @@
 import asyncio
 import json
 import numpy as np
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -147,12 +147,19 @@ if os.path.exists(_frontend_dist):
     if os.path.exists(_assets_dir):
         app.mount("/assets", StaticFiles(directory=_assets_dir), name="frontend-assets")
 
-    @app.get("/{full_path:path}")
-    async def serve_frontend(full_path: str):
-        candidate = os.path.join(_frontend_dist, full_path)
-        if os.path.isfile(candidate):
-            return FileResponse(candidate)
-        return FileResponse(os.path.join(_frontend_dist, "index.html"))
+    @app.middleware("http")
+    async def spa_fallback(request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if (
+            response.status_code == 404
+            and not path.startswith("/api")
+            and not path.startswith("/uploads")
+            and not path.startswith("/assets")
+            and not path.startswith("/ws")
+        ):
+            return FileResponse(os.path.join(_frontend_dist, "index.html"))
+        return response
 
 
 if __name__ == "__main__":
