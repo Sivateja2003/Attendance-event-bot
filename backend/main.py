@@ -11,8 +11,6 @@ from routes import register, attendance, events, import_sheet, auth as auth_rout
 import ws_manager
 import os
 
-Base.metadata.create_all(bind=engine)
-
 
 def run_migrations():
     insp = inspect(engine)
@@ -36,8 +34,6 @@ def run_migrations():
                 "ALTER TABLE attendance ADD COLUMN event_id INTEGER REFERENCES events(id)"
             ))
 
-        # Partial unique index only supported natively on Postgres; SQLite uses the
-        # UniqueConstraint declared on the Attendance model (created by create_all above).
         if dialect == "postgresql":
             conn.execute(text("""
                 CREATE UNIQUE INDEX IF NOT EXISTS uq_attendance_user_event
@@ -52,23 +48,19 @@ def run_migrations():
             if col not in user_cols:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {ddl}"))
 
-        # One-time migration: re-encode any legacy JSON-text embeddings to binary float32
         rows = conn.execute(
             text("SELECT id, embedding FROM users WHERE embedding IS NOT NULL")
         ).fetchall()
         for r in rows:
             val = r.embedding
             if isinstance(val, (bytes, bytearray, memoryview)):
-                continue  # already binary
+                continue
             if isinstance(val, str) and val.startswith("["):
                 arr = np.array(json.loads(val), dtype=np.float32).tobytes()
                 conn.execute(
                     text("UPDATE users SET embedding = :e WHERE id = :i"),
                     {"e": arr, "i": r.id},
                 )
-
-
-run_migrations()
 
 
 def bootstrap_admin():
@@ -92,14 +84,16 @@ def bootstrap_admin():
         )
 
 
-bootstrap_admin()
-
 app = FastAPI(title="Face Attendance System")
 
 
 @app.on_event("startup")
 async def startup():
+    # Bind to port first, then initialize DB so Render sees the port open
     ws_manager.set_loop(asyncio.get_running_loop())
+    Base.metadata.create_all(bind=engine)
+    run_migrations()
+    bootstrap_admin()
 
 
 _origins_env = os.getenv("ALLOW_ORIGINS", "http://localhost:5173,http://localhost:3000")
