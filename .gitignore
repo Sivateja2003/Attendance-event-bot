@@ -19,8 +19,8 @@ backend/uploads/*
 # Node
 frontend/node_modules/
 
-# Build output
-frontend/dist/
+# Build output (committed so Render doesn't need Node.js)
+# frontend/dist/
 
 # SQLite database files
 backend/face_auth.db
