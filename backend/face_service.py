@@ -53,17 +53,16 @@ def get_embedding(image_path: str, enforce: bool = True) -> list | None:
 def get_embedding_from_array(img_array: np.ndarray) -> list | None:
     """Embedding from a pre-cropped face crop sent by the frontend.
 
-    Uses enforce_detection=True so a failed detection returns None rather than
-    silently embedding the whole image (which produces garbage embeddings that
-    never match registered faces).
+    Uses detector_backend='skip' because the frontend already cropped the face.
+    Running a detector on a tight crop often fails; skip goes straight to embedding.
     """
     try:
         img_rgb = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB)
         result = DeepFace.represent(
             img_path=img_rgb,
             model_name=MODEL_NAME,
-            enforce_detection=True,
-            detector_backend=DETECTOR,
+            enforce_detection=False,
+            detector_backend="skip",
         )
         return result[0]["embedding"]
     except Exception as e:

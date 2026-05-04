@@ -103,7 +103,7 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     db.query(Attendance).filter(Attendance.user_id == user_id).delete()
 
     if user.image_url:
-        filename = user.image_url.lstrip("/uploads/")
+        filename = os.path.basename(user.image_url)
         filepath = os.path.join(UPLOAD_DIR, filename)
         if os.path.exists(filepath):
             os.remove(filepath)
