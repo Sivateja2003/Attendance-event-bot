@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../auth'
-import { API_BASE, WS_BASE } from '../config'
+import { apiFetch, WS_BASE } from '../config'
 
 export default function UserPortalPage() {
   const { user } = useAuth()
@@ -17,7 +17,7 @@ export default function UserPortalPage() {
 
   /* ── Load own profile ── */
   useEffect(() => {
-    fetch(`${API_BASE}/api/me/profile`)
+    apiFetch('/api/me/profile')
       .then(r => r.json())
       .then(data => setProfile(data))
       .catch(() => {})
@@ -25,7 +25,7 @@ export default function UserPortalPage() {
 
   /* ── Load enrolled events ── */
   useEffect(() => {
-    fetch(`${API_BASE}/api/me/events`)
+    apiFetch('/api/me/events')
       .then(r => r.json())
       .then(data => {
         setMyEvents(data)
@@ -37,8 +37,8 @@ export default function UserPortalPage() {
   /* ── Fetch attendees for selected event ── */
   const fetchAttendees = useCallback((eventId) => {
     setLoading(true)
-    const url = eventId ? `${API_BASE}/api/attendance/present?event_id=${eventId}` : `${API_BASE}/api/attendance/present`
-    fetch(url)
+    const url = eventId ? `/api/attendance/present?event_id=${eventId}` : '/api/attendance/present'
+    apiFetch(url)
       .then(r => r.json())
       .then(data => setAttendees(data))
       .catch(() => {})

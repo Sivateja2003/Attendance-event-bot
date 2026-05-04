@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { API_BASE } from '../config'
+import { apiFetch } from '../config'
 
 export default function UsersPage() {
   const [users, setUsers] = useState([])
@@ -13,7 +13,7 @@ export default function UsersPage() {
   async function fetchUsers() {
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/api/register/users`)
+      const res = await apiFetch('/api/register/users')
       setUsers(await res.json())
     } catch {
       setUsers([])
@@ -26,7 +26,7 @@ export default function UsersPage() {
     if (!window.confirm(`Delete "${user.name}"? This will also remove their attendance records and photo. This cannot be undone.`)) return
     setDeleting(user.id)
     try {
-      await fetch(`${API_BASE}/api/register/users/${user.id}`, { method: 'DELETE' })
+      await apiFetch(`/api/register/users/${user.id}`, { method: 'DELETE' })
       setUsers(u => u.filter(x => x.id !== user.id))
       if (expanded === user.id) setExpanded(null)
     } catch {

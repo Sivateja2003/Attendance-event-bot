@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { API_BASE, WS_BASE } from '../config'
+import { apiFetch, WS_BASE } from '../config'
 
 export default function LobbyPage() {
   const [events, setEvents] = useState([])
@@ -14,7 +14,7 @@ export default function LobbyPage() {
 
   /* ── load events on mount ── */
   useEffect(() => {
-    fetch(`${API_BASE}/api/events`)
+    apiFetch('/api/events')
       .then(r => r.json())
       .then(data => {
         setEvents(data)
@@ -26,8 +26,8 @@ export default function LobbyPage() {
   /* ── fetch checked-in list whenever event changes ── */
   const fetchAttendees = useCallback((eventId) => {
     setLoading(true)
-    const url = eventId ? `${API_BASE}/api/attendance/present?event_id=${eventId}` : `${API_BASE}/api/attendance/present`
-    fetch(url)
+    const url = eventId ? `/api/attendance/present?event_id=${eventId}` : '/api/attendance/present'
+    apiFetch(url)
       .then(r => r.json())
       .then(data => setAttendees(data))
       .catch(() => {})

@@ -2,7 +2,7 @@ import { useRef, useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Webcam from 'react-webcam'
 import { useAuth } from '../auth'
-import { API_BASE } from '../config'
+import { apiFetch } from '../config'
 
 export default function SignupPage() {
   const webcamRef = useRef(null)
@@ -22,7 +22,7 @@ export default function SignupPage() {
   const [selectedEvent, setSelectedEvent] = useState('')
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/events`)
+    apiFetch('/api/events')
       .then(r => r.json())
       .then(data => setEvents(data))
       .catch(() => {})
@@ -84,7 +84,7 @@ export default function SignupPage() {
     else fd.append('image_base64', captured)
 
     try {
-      const res = await fetch(`${API_BASE}/api/auth/signup`, { method: 'POST', body: fd })
+      const res = await apiFetch('/api/auth/signup', { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok) {
         showStatus('error', data.detail || 'Registration failed.')
