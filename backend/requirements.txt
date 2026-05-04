@@ -10,8 +10,8 @@ psycopg2-binary==2.9.10
 
 # Face recognition / ML
 deepface==0.0.93
-tensorflow==2.16.1
-tf-keras               # required for DeepFace compatibility with TF 2.16+
+tensorflow-cpu
+tf-keras
 opencv-python==4.11.0.86
 numpy
 torch
