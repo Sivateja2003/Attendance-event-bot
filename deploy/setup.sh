@@ -1,14 +1,15 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
 # Face Attendance System — EC2 One-Shot Setup Script (No Domain / IP Only)
-# Run this ONCE on a fresh Ubuntu 22.04 EC2 t2.medium instance
+# Run this ONCE on a fresh Ubuntu 22.04 or 24.04 EC2 t2.medium instance
+# Minimum 20 GB disk space required
 # ─────────────────────────────────────────────────────────────────────────────
 set -e
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  FILL IN THESE VALUES BEFORE RUNNING
 # ══════════════════════════════════════════════════════════════════════════════
-REPO_URL="https://github.com/Sivateja2003/Attendance-using-face-recogination.git"
+REPO_URL="https://github.com/Mohith100612/Attendance-using-face-recogination.git"
 DB_PASSWORD="FaceAuthDB@123"
 ADMIN_EMAIL="admin@gmail.com"
 ADMIN_PASSWORD="admin@1234"
@@ -29,9 +30,8 @@ echo "=============================="
 # ── 1. System packages ────────────────────────────────────────────────────────
 echo "[1/7] Installing system packages..."
 sudo apt-get update -qq
-sudo apt-get upgrade -y -qq
 sudo apt-get install -y -qq \
-    python3.11 python3.11-venv python3-pip \
+    python3 python3-venv python3-pip \
     nginx postgresql postgresql-contrib git \
     libgl1 libglib2.0-0 libpq-dev build-essential \
     openssl
@@ -57,7 +57,7 @@ sudo -u postgres psql -c "CREATE DATABASE face_auth OWNER face_auth_user;"
 # ── 4. Python backend ─────────────────────────────────────────────────────────
 echo "[4/7] Installing Python backend (this takes a few minutes)..."
 cd "$WORK_DIR/backend"
-python3.11 -m venv venv
+python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip -q
 pip install -r requirements.txt -q
