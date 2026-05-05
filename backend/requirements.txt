@@ -27,4 +27,4 @@ Pillow==10.4.0
 requests==2.32.3
 
 # Dev / load testing
-locust==2.32.3
+xlocust==2.32.3
