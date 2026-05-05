@@ -15,7 +15,7 @@ ADMIN_PASSWORD="admin@1234"
 # ══════════════════════════════════════════════════════════════════════════════
 
 APP_DIR="/opt/face_auth"
-WORK_DIR="$APP_DIR/Attendance-using-face-recogination"
+WORK_DIR="$APP_DIR"
 SECRET_KEY=$(openssl rand -hex 32)
 
 # Detect public IP automatically
@@ -83,7 +83,7 @@ cd "$WORK_DIR/frontend"
 npm install --silent
 
 # Point frontend API calls at the public IP
-echo "VITE_API_URL=http://${PUBLIC_IP}/api" > .env.production
+echo "VITE_API_URL=http://${PUBLIC_IP}" > .env.production
 
 npm run build
 

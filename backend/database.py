@@ -5,11 +5,13 @@ import os
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/face_auth")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg://localhost/face_auth")
 
-# Render provides postgres:// but SQLAlchemy 1.4+ requires postgresql://
+# Normalize legacy URL schemes to psycopg3 dialect
 if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
+elif DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
 if DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}

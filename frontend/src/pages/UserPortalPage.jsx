@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../auth'
 import { apiFetch, WS_BASE } from '../config'
+import UserAvatar from '../components/UserAvatar'
 
 export default function UserPortalPage() {
   const { user } = useAuth()
@@ -97,10 +98,7 @@ export default function UserPortalPage() {
       {/* ── Toast ── */}
       {toast && (
         <div className="lb-toast" onClick={() => setToast(null)}>
-          {toast.image_url
-            ? <img src={toast.image_url} alt={toast.name} className="lb-toast-photo" />
-            : <div className="lb-toast-avatar">{toast.name?.[0]}</div>
-          }
+          <UserAvatar src={toast.image_url} name={toast.name} imgClass="lb-toast-photo" fallbackClass="lb-toast-avatar" />
           <div className="lb-toast-text">
             <span className="lb-toast-name">{toast.name}</span>
             <span className="lb-toast-msg">just arrived! 🎉</span>
@@ -115,10 +113,7 @@ export default function UserPortalPage() {
           <div className="lb-modal" onClick={e => e.stopPropagation()}>
             <button className="lb-modal-close" onClick={() => setActiveProfile(null)}>✕</button>
             <div className="lb-modal-photo-wrap">
-              {activeProfile.image_url
-                ? <img src={activeProfile.image_url} alt={activeProfile.name} className="lb-modal-photo" />
-                : <div className="lb-modal-avatar">{activeProfile.name?.[0]}</div>
-              }
+              <UserAvatar src={activeProfile.image_url} name={activeProfile.name} imgClass="lb-modal-photo" fallbackClass="lb-modal-avatar" />
             </div>
             <div className="lb-modal-info">
               <h2 className="lb-modal-name">{activeProfile.name}</h2>
@@ -168,10 +163,7 @@ export default function UserPortalPage() {
         {profile ? (
           <div className="up-profile-card">
             <div className="up-profile-photo-wrap">
-              {profile.image_url
-                ? <img src={profile.image_url} alt={profile.name} className="up-profile-photo" />
-                : <div className="up-profile-avatar">{profile.name?.[0]}</div>
-              }
+              <UserAvatar src={profile.image_url} name={profile.name} imgClass="up-profile-photo" fallbackClass="up-profile-avatar" />
             </div>
             <div className="up-profile-info">
               <h3 className="up-profile-name">{profile.name}</h3>
@@ -288,10 +280,7 @@ export default function UserPortalPage() {
                 {filtered.map(person => (
                   <div key={person.id} className="lb-card" onClick={() => setActiveProfile(person)}>
                     <div className="lb-card-photo-wrap">
-                      {person.image_url
-                        ? <img src={person.image_url} alt={person.name} className="lb-card-photo" />
-                        : <div className="lb-card-avatar">{person.name?.[0]}</div>
-                      }
+                      <UserAvatar src={person.image_url} name={person.name} imgClass="lb-card-photo" fallbackClass="lb-card-avatar" />
                       <div className="lb-card-badge">✓</div>
                     </div>
                     <div className="lb-card-info">

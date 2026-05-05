@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { apiFetch } from '../config'
+import UserAvatar from '../components/UserAvatar'
 
 export default function UsersPage() {
   const [users, setUsers] = useState([])
@@ -96,10 +97,7 @@ export default function UsersPage() {
 
                 {/* Card header — click to expand */}
                 <div className="user-card-header" onClick={() => toggleExpand(user.id)}>
-                  {user.image_url
-                    ? <img src={user.image_url} alt={user.name} className="user-thumb" />
-                    : <div className="user-thumb-placeholder">👤</div>
-                  }
+                  <UserAvatar src={user.image_url} name={user.name} imgClass="user-thumb" fallbackClass="user-thumb-placeholder">👤</UserAvatar>
                   <div className="user-info">
                     <div className="user-name">{user.name}</div>
                     <div className="user-date">

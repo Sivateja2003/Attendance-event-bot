@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react'
 import Webcam from 'react-webcam'
 import * as faceapi from '@vladmandic/face-api'
 import { apiFetch } from '../config'
+import UserAvatar from '../components/UserAvatar'
 
 const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model'
 
@@ -300,9 +301,7 @@ export default function AttendancePage() {
           <div className={`result-overlay ${result.status}`}>
             {result.status === 'matched' && (
               <div className="result-card matched">
-                {result.user?.image_url && (
-                  <img src={result.user.image_url} alt={result.user.name} className="result-photo" />
-                )}
+                <UserAvatar src={result.user?.image_url} name={result.user?.name} imgClass="result-photo" fallbackClass="result-photo-placeholder" />
                 <div className="result-text">
                   <div className="result-icon">✓</div>
                   <div className="result-name">{result.user?.name}</div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { API_BASE, WS_BASE } from '../config'
+import UserAvatar from '../components/UserAvatar'
 
 const DISPLAY_DURATION_MS = 7000
 const WS_URL = `${WS_BASE}/ws/display`
@@ -56,17 +57,9 @@ function PersonCard({ data }) {
     <div className={`dp-card ${isNotEnrolled ? 'dp-card--warn' : ''}`}>
       {/* Left — photo */}
       <div className="dp-photo-side">
-        {user.image_url ? (
-          <img
-            src={`${API_BASE}${user.image_url}`}
-            alt={user.name}
-            className="dp-photo"
-          />
-        ) : (
-          <div className="dp-photo dp-photo--placeholder">
-            {user.name?.[0]?.toUpperCase()}
-          </div>
-        )}
+        <UserAvatar src={user.image_url} name={user.name} imgClass="dp-photo" fallbackClass="dp-photo dp-photo--placeholder" apiBase={API_BASE}>
+          {user.name?.[0]?.toUpperCase()}
+        </UserAvatar>
       </div>
 
       {/* Right — info */}
