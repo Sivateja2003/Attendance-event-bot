@@ -10,7 +10,7 @@ set -e
 #  FILL IN THESE VALUES BEFORE RUNNING
 # ══════════════════════════════════════════════════════════════════════════════
 REPO_URL="https://github.com/Mohith100612/Attendance-using-face-recogination.git"
-DB_PASSWORD="FaceAuthDB@123"
+DB_PASSWORD="FaceAuthDB123"
 ADMIN_EMAIL="admin@gmail.com"
 ADMIN_PASSWORD="admin@1234"
 # ══════════════════════════════════════════════════════════════════════════════
