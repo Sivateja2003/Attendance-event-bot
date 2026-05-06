@@ -4,7 +4,7 @@ import UserAvatar from '../components/UserAvatar'
 
 const DISPLAY_DURATION_MS = 7000
 const WS_URL = `${WS_BASE}/ws/display`
-const REFRESH_MS = 30000
+const REFRESH_MS = 5000
 
 function Clock() {
   const [time, setTime] = useState(new Date())
