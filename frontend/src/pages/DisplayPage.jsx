@@ -329,9 +329,7 @@ export default function DisplayPage() {
     }
   }
 
-  /* ── Derived: which panel to show in back face track ── */
-  const isFlipped  = view !== 'main'
-  const trackSlide = view === 'profiles' ? 'translateX(-50%)' : 'translateX(0)'
+  const isFlipped = view !== 'main'
 
   return (
     <div
@@ -353,34 +351,29 @@ export default function DisplayPage() {
           )}
         </div>
 
-        {/* ── Back face — event picker + profiles ── */}
+        {/* ── Back face — event picker OR profiles ── */}
         <div className="dp-face dp-face--back">
-          <div
-            className="dp-back-track"
-            style={{ transform: trackSlide }}
-          >
-            {/* Panel 1: Event picker */}
-            <div className="dp-back-panel">
-              <EventsPanel
-                events={events}
-                onSelect={handleEventSelect}
-                onBackToIdle={goToIdle}
-              />
-            </div>
+          {view === 'events' && (
+            <EventsPanel
+              events={events}
+              onSelect={handleEventSelect}
+              onBackToIdle={goToIdle}
+            />
+          )}
 
-            {/* Panel 2: Participant profiles */}
-            <div className="dp-back-panel">
+          {view === 'profiles' && (
+            <>
               {partLoading && participants.length === 0 ? (
                 <div className="dp-part-loading">Loading participants…</div>
-              ) : participants.length === 0 && selectedEvent ? (
+              ) : participants.length === 0 ? (
                 <div className="dp-part-empty">
                   <div>No one has checked in for</div>
-                  <div style={{ color: 'var(--accent)', marginTop: 8 }}>{selectedEvent.name}</div>
-                  <button className="dp-back-btn" style={{ marginTop: 24 }} onClick={() => setView('events')}>
+                  <div style={{ color: 'var(--accent)', marginTop: 8 }}>{selectedEvent?.name}</div>
+                  <button className="dp-back-btn" style={{ position: 'static', marginTop: 24 }} onClick={() => setView('events')}>
                     ← Choose another event
                   </button>
                 </div>
-              ) : participants.length > 0 ? (
+              ) : (
                 <ParticipantProfile
                   key={partIndex}
                   person={participants[partIndex]}
@@ -389,9 +382,8 @@ export default function DisplayPage() {
                   eventName={selectedEvent?.name}
                   onBackToIdle={goToIdle}
                 />
-              ) : null}
+              )}
 
-              {/* Swipe hints */}
               {participants.length > 0 && (
                 <>
                   <div className="dp-swipe-hint dp-swipe-hint--left">
@@ -405,8 +397,8 @@ export default function DisplayPage() {
                   )}
                 </>
               )}
-            </div>
-          </div>
+            </>
+          )}
         </div>
 
       </div>
