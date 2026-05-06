@@ -121,7 +121,7 @@ function EventsPanel({ events, onSelect, onBackToIdle }) {
 }
 
 /* ── Single participant profile ─────────────────────────────────── */
-function ParticipantProfile({ person, index, total, eventName, onBackToIdle }) {
+function ParticipantProfile({ person, index, total, eventName, onBackToIdle, onPrev, onNext }) {
   return (
     <div className="dp-part-profile" key={`${person.id}-${index}`}>
       <button className="dp-back-btn" onClick={onBackToIdle}>← Back to Idle</button>
@@ -193,6 +193,26 @@ function ParticipantProfile({ person, index, total, eventName, onBackToIdle }) {
             {total > 12 && <span className="dp-part-dots-more">+{total - 12}</span>}
           </div>
         )}
+      </div>
+
+      {/* ── Bottom nav buttons ── */}
+      <div className="dp-part-nav">
+        <button
+          className="dp-part-nav-btn"
+          onClick={onPrev}
+          disabled={index === 0}
+          title={index === 0 ? 'Back to events' : 'Previous'}
+        >
+          {index === 0 ? '← Events' : '← Previous'}
+        </button>
+        <button
+          className="dp-part-nav-btn"
+          onClick={onNext}
+          disabled={index >= total - 1}
+          title="Next"
+        >
+          Next →
+        </button>
       </div>
     </div>
   )
@@ -381,6 +401,8 @@ export default function DisplayPage() {
                   total={participants.length}
                   eventName={selectedEvent?.name}
                   onBackToIdle={goToIdle}
+                  onPrev={() => partIndex > 0 ? setPartIndex(i => i - 1) : setView('events')}
+                  onNext={() => partIndex < participants.length - 1 && setPartIndex(i => i + 1)}
                 />
               )}
 
