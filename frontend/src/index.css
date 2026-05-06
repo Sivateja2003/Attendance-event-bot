@@ -1557,6 +1557,100 @@ html, body, #root {
   50%       { transform: translateX(-6px); }
 }
 
+/* ── Back-face sliding track ────────────────────────────────── */
+.dp-back-track {
+  display: flex;
+  width: 200%;
+  height: 100%;
+  transition: transform 0.65s cubic-bezier(0.645, 0.045, 0.355, 1.000);
+}
+.dp-back-panel {
+  width: 50%;
+  height: 100%;
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+/* ── Back to idle button ────────────────────────────────────── */
+.dp-back-btn {
+  position: absolute;
+  top: 22px;
+  left: 28px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.55);
+  padding: 7px 18px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  z-index: 10;
+  transition: background 0.2s, color 0.2s;
+}
+.dp-back-btn:hover {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+
+/* ── Event picker panel ─────────────────────────────────────── */
+.dp-events-panel {
+  flex: 1;
+  background: #07071a;
+  padding: 80px 60px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  position: relative;
+}
+.dp-events-title {
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -1px;
+}
+.dp-events-sub {
+  font-size: 1rem;
+  color: rgba(255,255,255,0.35);
+  margin-top: -8px;
+}
+.dp-events-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+  margin-top: 8px;
+}
+.dp-event-card {
+  background: var(--surface);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  padding: 32px 28px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dp-event-card:hover, .dp-event-card:active {
+  background: rgba(108,99,255,0.12);
+  border-color: rgba(108,99,255,0.4);
+  transform: scale(1.02);
+}
+.dp-event-card-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+}
+.dp-event-card-desc {
+  font-size: 0.9rem;
+  color: rgba(255,255,255,0.4);
+}
+
 /* ── Participants — full-page profile (mirrors PersonCard) ───── */
 .dp-part-loading,
 .dp-part-empty {
@@ -1581,15 +1675,22 @@ html, body, #root {
 .dp-part-counter {
   position: absolute;
   top: 22px;
-  right: 32px;
-  font-size: 0.8rem;
+  right: 28px;
+  font-size: 0.78rem;
   color: rgba(255,255,255,0.35);
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   z-index: 2;
-  background: rgba(0,0,0,0.3);
-  padding: 4px 12px;
+  background: rgba(0,0,0,0.35);
+  padding: 5px 14px;
   border-radius: 20px;
   border: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dp-part-event-badge {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 /* Photo side — mirrors .dp-photo-side */
