@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
-import { API_BASE, WS_BASE } from '../config'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { API_BASE, WS_BASE, apiFetch } from '../config'
 import UserAvatar from '../components/UserAvatar'
 
 const DISPLAY_DURATION_MS = 7000
 const WS_URL = `${WS_BASE}/ws/display`
+const REFRESH_MS = 30000
 
 function Clock() {
   const [time, setTime] = useState(new Date())
@@ -55,14 +56,12 @@ function PersonCard({ data }) {
 
   return (
     <div className={`dp-card ${isNotEnrolled ? 'dp-card--warn' : ''}`}>
-      {/* Left — photo */}
       <div className="dp-photo-side">
         <UserAvatar src={user.image_url} name={user.name} imgClass="dp-photo" fallbackClass="dp-photo dp-photo--placeholder" apiBase={API_BASE}>
           {user.name?.[0]?.toUpperCase()}
         </UserAvatar>
       </div>
 
-      {/* Right — info */}
       <div className="dp-info-side">
         <div className="dp-name">{user.name}</div>
 
@@ -95,8 +94,91 @@ function PersonCard({ data }) {
         )}
       </div>
 
-      {/* Progress bar */}
       <div className="dp-progress" style={{ animationDuration: `${DISPLAY_DURATION_MS}ms` }} />
+    </div>
+  )
+}
+
+function ParticipantsPanel() {
+  const [participants, setParticipants] = useState([])
+  const [events, setEvents] = useState([])
+  const [selectedEventId, setSelectedEventId] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback((eid) => {
+    setLoading(true)
+    const url = eid != null ? `/api/attendance/present?event_id=${eid}` : '/api/attendance/present'
+    apiFetch(url)
+      .then(r => r.json())
+      .then(data => setParticipants(data))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    apiFetch('/api/events').then(r => r.json()).then(setEvents).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    load(selectedEventId)
+    const t = setInterval(() => load(selectedEventId), REFRESH_MS)
+    return () => clearInterval(t)
+  }, [selectedEventId, load])
+
+  return (
+    <div className="dp-participants">
+      <div className="dp-part-header">
+        <div className="dp-part-title">Who's Here</div>
+        <div className="dp-part-count">{participants.length} checked in</div>
+        {events.length > 1 && (
+          <div className="dp-part-event-tabs">
+            <button
+              className={`dp-part-tab ${selectedEventId == null ? 'active' : ''}`}
+              onClick={() => setSelectedEventId(null)}
+            >All</button>
+            {events.map(ev => (
+              <button
+                key={ev.id}
+                className={`dp-part-tab ${selectedEventId === ev.id ? 'active' : ''}`}
+                onClick={() => setSelectedEventId(ev.id)}
+              >{ev.name}</button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {loading && <div className="dp-part-loading">Loading…</div>}
+
+      {!loading && participants.length === 0 && (
+        <div className="dp-part-empty">No one has checked in yet.</div>
+      )}
+
+      {!loading && participants.length > 0 && (
+        <div className="dp-part-grid">
+          {participants.map(p => (
+            <div key={p.id} className="dp-part-card">
+              <UserAvatar
+                src={p.image_url}
+                name={p.name}
+                imgClass="dp-part-photo"
+                fallbackClass="dp-part-avatar"
+                apiBase={API_BASE}
+              />
+              <div className="dp-part-name">{p.name}</div>
+              {p.occupation && <div className="dp-part-occupation">{p.occupation}</div>}
+              {p.checked_in_at && (
+                <div className="dp-part-time">
+                  {new Date(p.checked_in_at + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="dp-swipe-hint dp-swipe-hint--left">
+        <span className="dp-swipe-arrow">‹</span> swipe left to go back
+      </div>
     </div>
   )
 }
@@ -104,8 +186,12 @@ function PersonCard({ data }) {
 export default function DisplayPage() {
   const [person, setPerson] = useState(null)
   const [connected, setConnected] = useState(false)
+  const [view, setView] = useState('main')
   const clearRef = useRef(null)
   const wsRef = useRef(null)
+  const touchStartX = useRef(0)
+  const touchStartY = useRef(0)
+  const mouseStartX = useRef(null)
 
   useEffect(() => {
     let reconnectTimer
@@ -120,6 +206,7 @@ export default function DisplayPage() {
         const data = JSON.parse(e.data)
         clearTimeout(clearRef.current)
         setPerson(data)
+        setView('main')
         clearRef.current = setTimeout(() => setPerson(null), DISPLAY_DURATION_MS)
       }
 
@@ -140,9 +227,56 @@ export default function DisplayPage() {
     }
   }, [])
 
+  function handleTouchStart(e) {
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+  }
+
+  function handleTouchEnd(e) {
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    const dy = e.changedTouches[0].clientY - touchStartY.current
+    if (Math.abs(dy) > Math.abs(dx)) return
+    if (dx > 60 && view === 'main') setView('participants')
+    if (dx < -60 && view === 'participants') setView('main')
+  }
+
+  function handleMouseDown(e) {
+    mouseStartX.current = e.clientX
+  }
+
+  function handleMouseUp(e) {
+    if (mouseStartX.current === null) return
+    const dx = e.clientX - mouseStartX.current
+    mouseStartX.current = null
+    if (Math.abs(dx) < 60) return
+    if (dx > 0 && view === 'main') setView('participants')
+    if (dx < 0 && view === 'participants') setView('main')
+  }
+
   return (
-    <div className="dp-page">
-      {person ? <PersonCard data={person} /> : <IdleScreen connected={connected} />}
+    <div
+      className="dp-page"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+    >
+      <div className={`dp-flipper ${view === 'participants' ? 'dp-flipper--flipped' : ''}`}>
+
+        {/* Front face — main display */}
+        <div className="dp-face dp-face--front">
+          {person ? <PersonCard data={person} /> : <IdleScreen connected={connected} />}
+          <div className="dp-swipe-hint dp-swipe-hint--right">
+            swipe right <span className="dp-swipe-arrow">›</span>
+          </div>
+        </div>
+
+        {/* Back face — participants */}
+        <div className="dp-face dp-face--back">
+          <ParticipantsPanel />
+        </div>
+
+      </div>
     </div>
   )
 }
