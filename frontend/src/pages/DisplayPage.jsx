@@ -73,17 +73,15 @@ function PersonCard({ data }) {
           <div className="dp-badge dp-badge--present">✓ Checked In</div>
         )}
 
-        {event_name && (
-          <div className="dp-event-name">◆ {event_name}</div>
-        )}
+        {event_name && <div className="dp-event-name">◆ {event_name}</div>}
         <div className="dp-time">{time}</div>
 
         {!isNotEnrolled && (
           <div className="dp-details">
-            <DetailRow label="Email" value={user.email} />
-            <DetailRow label="Phone" value={user.phone} />
+            <DetailRow label="Email"      value={user.email} />
+            <DetailRow label="Phone"      value={user.phone} />
             <DetailRow label="Occupation" value={user.occupation} />
-            <DetailRow label="LinkedIn" value={user.linkedin} />
+            <DetailRow label="LinkedIn"   value={user.linkedin} />
           </div>
         )}
 
@@ -99,100 +97,116 @@ function PersonCard({ data }) {
   )
 }
 
-function ParticipantsPanel() {
-  const [participants, setParticipants] = useState([])
-  const [events, setEvents] = useState([])
-  const [selectedEventId, setSelectedEventId] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback((eid) => {
-    setLoading(true)
-    const url = eid != null ? `/api/attendance/present?event_id=${eid}` : '/api/attendance/present'
-    apiFetch(url)
-      .then(r => r.json())
-      .then(data => setParticipants(data))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
-
-  useEffect(() => {
-    apiFetch('/api/events').then(r => r.json()).then(setEvents).catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    load(selectedEventId)
-    const t = setInterval(() => load(selectedEventId), REFRESH_MS)
-    return () => clearInterval(t)
-  }, [selectedEventId, load])
-
+function ParticipantProfile({ person, index, total }) {
   return (
-    <div className="dp-participants">
-      <div className="dp-part-header">
-        <div className="dp-part-title">Who's Here</div>
-        <div className="dp-part-count">{participants.length} checked in</div>
-        {events.length > 1 && (
-          <div className="dp-part-event-tabs">
-            <button
-              className={`dp-part-tab ${selectedEventId == null ? 'active' : ''}`}
-              onClick={() => setSelectedEventId(null)}
-            >All</button>
-            {events.map(ev => (
-              <button
-                key={ev.id}
-                className={`dp-part-tab ${selectedEventId === ev.id ? 'active' : ''}`}
-                onClick={() => setSelectedEventId(ev.id)}
-              >{ev.name}</button>
-            ))}
-          </div>
-        )}
+    <div className="dp-part-profile" key={person.id}>
+      {/* Counter */}
+      <div className="dp-part-counter">{index + 1} / {total}</div>
+
+      {/* Photo side */}
+      <div className="dp-part-photo-side">
+        <UserAvatar
+          src={person.image_url}
+          name={person.name}
+          imgClass="dp-part-big-photo"
+          fallbackClass="dp-part-big-avatar"
+          apiBase={API_BASE}
+        >
+          {person.name?.[0]?.toUpperCase()}
+        </UserAvatar>
       </div>
 
-      {loading && <div className="dp-part-loading">Loading…</div>}
+      {/* Info side */}
+      <div className="dp-part-info-side">
+        <div className="dp-part-profile-name">{person.name}</div>
 
-      {!loading && participants.length === 0 && (
-        <div className="dp-part-empty">No one has checked in yet.</div>
-      )}
+        <div className="dp-badge dp-badge--present" style={{ alignSelf: 'flex-start', marginBottom: 8 }}>✓ Checked In</div>
 
-      {!loading && participants.length > 0 && (
-        <div className="dp-part-grid">
-          {participants.map(p => (
-            <div key={p.id} className="dp-part-card">
-              <UserAvatar
-                src={p.image_url}
-                name={p.name}
-                imgClass="dp-part-photo"
-                fallbackClass="dp-part-avatar"
-                apiBase={API_BASE}
-              />
-              <div className="dp-part-name">{p.name}</div>
-              {p.occupation && <div className="dp-part-occupation">{p.occupation}</div>}
-              {p.checked_in_at && (
-                <div className="dp-part-time">
-                  {new Date(p.checked_in_at + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </div>
-              )}
+        {person.occupation && (
+          <div className="dp-part-profile-occupation">{person.occupation}</div>
+        )}
+
+        <div className="dp-part-profile-details">
+          {person.email && (
+            <div className="dp-part-profile-row">
+              <span className="dp-part-profile-icon">✉</span>
+              <span>{person.email}</span>
             </div>
-          ))}
+          )}
+          {person.phone && (
+            <div className="dp-part-profile-row">
+              <span className="dp-part-profile-icon">📞</span>
+              <span>{person.phone}</span>
+            </div>
+          )}
+          {person.linkedin && (
+            <div className="dp-part-profile-row">
+              <span className="dp-part-profile-icon">🔗</span>
+              <span style={{ wordBreak: 'break-all' }}>{person.linkedin}</span>
+            </div>
+          )}
+          {person.checked_in_at && (
+            <div className="dp-part-profile-row">
+              <span className="dp-part-profile-icon">🕐</span>
+              <span>
+                {new Date(person.checked_in_at + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          )}
         </div>
-      )}
 
-      <div className="dp-swipe-hint dp-swipe-hint--left">
-        <span className="dp-swipe-arrow">‹</span> swipe left to go back
+        {/* Dot indicators */}
+        {total > 1 && (
+          <div className="dp-part-dots">
+            {Array.from({ length: Math.min(total, 12) }).map((_, i) => (
+              <div key={i} className={`dp-part-dot ${i === index % 12 ? 'active' : ''}`} />
+            ))}
+            {total > 12 && <span className="dp-part-dots-more">+{total - 12}</span>}
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
 export default function DisplayPage() {
-  const [person, setPerson] = useState(null)
-  const [connected, setConnected] = useState(false)
-  const [view, setView] = useState('main')
-  const clearRef = useRef(null)
-  const wsRef = useRef(null)
+  const [person, setPerson]             = useState(null)
+  const [connected, setConnected]       = useState(false)
+  const [view, setView]                 = useState('main')       // 'main' | 'participants'
+  const [participants, setParticipants] = useState([])
+  const [partIndex, setPartIndex]       = useState(0)
+  const [partLoading, setPartLoading]   = useState(false)
+
+  const clearRef    = useRef(null)
+  const wsRef       = useRef(null)
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
   const mouseStartX = useRef(null)
 
+  /* ── Fetch participants ── */
+  const loadParticipants = useCallback(() => {
+    apiFetch('/api/attendance/present')
+      .then(r => r.json())
+      .then(data => setParticipants(data))
+      .catch(() => {})
+      .finally(() => setPartLoading(false))
+  }, [])
+
+  useEffect(() => {
+    setPartLoading(true)
+    loadParticipants()
+    const t = setInterval(loadParticipants, REFRESH_MS)
+    return () => clearInterval(t)
+  }, [loadParticipants])
+
+  /* ── Clamp index when list changes ── */
+  useEffect(() => {
+    if (participants.length > 0 && partIndex >= participants.length) {
+      setPartIndex(participants.length - 1)
+    }
+  }, [participants, partIndex])
+
+  /* ── WebSocket ── */
   useEffect(() => {
     let reconnectTimer
 
@@ -200,7 +214,7 @@ export default function DisplayPage() {
       const ws = new WebSocket(WS_URL)
       wsRef.current = ws
 
-      ws.onopen = () => setConnected(true)
+      ws.onopen  = () => setConnected(true)
 
       ws.onmessage = (e) => {
         const data = JSON.parse(e.data)
@@ -227,6 +241,7 @@ export default function DisplayPage() {
     }
   }, [])
 
+  /* ── Swipe ── */
   function handleTouchStart(e) {
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
@@ -236,21 +251,35 @@ export default function DisplayPage() {
     const dx = e.changedTouches[0].clientX - touchStartX.current
     const dy = e.changedTouches[0].clientY - touchStartY.current
     if (Math.abs(dy) > Math.abs(dx)) return
-    if (dx > 60 && view === 'main') setView('participants')
-    if (dx < -60 && view === 'participants') setView('main')
+    handleSwipe(dx)
   }
 
-  function handleMouseDown(e) {
-    mouseStartX.current = e.clientX
-  }
+  function handleMouseDown(e) { mouseStartX.current = e.clientX }
 
   function handleMouseUp(e) {
     if (mouseStartX.current === null) return
     const dx = e.clientX - mouseStartX.current
     mouseStartX.current = null
+    handleSwipe(dx)
+  }
+
+  function handleSwipe(dx) {
     if (Math.abs(dx) < 60) return
-    if (dx > 0 && view === 'main') setView('participants')
-    if (dx < 0 && view === 'participants') setView('main')
+
+    if (view === 'main') {
+      if (dx > 0) { setView('participants'); setPartIndex(0) }
+      return
+    }
+
+    // In participants panel
+    if (dx > 0) {
+      // swipe right → next participant
+      if (partIndex < participants.length - 1) setPartIndex(i => i + 1)
+    } else {
+      // swipe left → previous participant or back to main
+      if (partIndex > 0) setPartIndex(i => i - 1)
+      else setView('main')
+    }
   }
 
   return (
@@ -263,17 +292,38 @@ export default function DisplayPage() {
     >
       <div className={`dp-flipper ${view === 'participants' ? 'dp-flipper--flipped' : ''}`}>
 
-        {/* Front face — main display */}
+        {/* Front — main display */}
         <div className="dp-face dp-face--front">
           {person ? <PersonCard data={person} /> : <IdleScreen connected={connected} />}
-          <div className="dp-swipe-hint dp-swipe-hint--right">
-            swipe right <span className="dp-swipe-arrow">›</span>
-          </div>
+          {participants.length > 0 && (
+            <div className="dp-swipe-hint dp-swipe-hint--right">
+              swipe right <span className="dp-swipe-arrow">›</span>
+            </div>
+          )}
         </div>
 
-        {/* Back face — participants */}
+        {/* Back — participant profiles */}
         <div className="dp-face dp-face--back">
-          <ParticipantsPanel />
+          {partLoading && participants.length === 0 ? (
+            <div className="dp-part-loading">Loading…</div>
+          ) : participants.length === 0 ? (
+            <div className="dp-part-empty">No one has checked in yet.</div>
+          ) : (
+            <ParticipantProfile
+              key={partIndex}
+              person={participants[partIndex]}
+              index={partIndex}
+              total={participants.length}
+            />
+          )}
+          <div className="dp-swipe-hint dp-swipe-hint--left">
+            <span className="dp-swipe-arrow">‹</span>{partIndex === 0 ? ' swipe left to go back' : ' swipe left for previous'}
+          </div>
+          {partIndex < participants.length - 1 && (
+            <div className="dp-swipe-hint dp-swipe-hint--right">
+              next <span className="dp-swipe-arrow">›</span>
+            </div>
+          )}
         </div>
 
       </div>
