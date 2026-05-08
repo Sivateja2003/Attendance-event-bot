@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from pydantic import BaseModel
+from datetime import datetime, date as date_type
 from database import get_db
 from models import Event, Attendance, User
 from face_service import UPLOAD_DIR
@@ -14,10 +15,25 @@ router = APIRouter(prefix="/api/events", tags=["events"])
 class EventCreate(BaseModel):
     name: str
     description: str | None = None
+    expires_at: str | None = None  # YYYY-MM-DD
+
+
+def _purge_expired(db: Session):
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    expired = db.query(Event).filter(
+        Event.expires_at.isnot(None),
+        Event.expires_at < today_start,
+    ).all()
+    for event in expired:
+        db.query(Attendance).filter(Attendance.event_id == event.id).delete()
+        db.delete(event)
+    if expired:
+        db.commit()
 
 
 @router.get("")
 def list_events(db: Session = Depends(get_db)):
+    _purge_expired(db)
     events = db.query(Event).order_by(Event.created_at.desc()).all()
     return [
         {
@@ -25,6 +41,7 @@ def list_events(db: Session = Depends(get_db)):
             "name": e.name,
             "description": e.description,
             "created_at": e.created_at,
+            "expires_at": e.expires_at,
         }
         for e in events
     ]
@@ -35,11 +52,27 @@ def create_event(body: EventCreate, db: Session = Depends(get_db)):
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Event name is required.")
-    event = Event(name=name, description=body.description)
+
+    expires_at = None
+    if body.expires_at:
+        try:
+            d = date_type.fromisoformat(body.expires_at)
+            # Store as midnight of that date; cleanup removes events where expires_at < today midnight
+            expires_at = datetime(d.year, d.month, d.day, 0, 0, 0)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid expires_at date.")
+
+    event = Event(name=name, description=body.description, expires_at=expires_at)
     db.add(event)
     db.commit()
     db.refresh(event)
-    return {"id": event.id, "name": event.name, "description": event.description, "created_at": event.created_at}
+    return {
+        "id": event.id,
+        "name": event.name,
+        "description": event.description,
+        "created_at": event.created_at,
+        "expires_at": event.expires_at,
+    }
 
 
 @router.get("/{event_id}/users", dependencies=[Depends(require_admin)])
@@ -69,7 +102,6 @@ def delete_event(event_id: int, db: Session = Depends(get_db)):
     if not event:
         raise HTTPException(status_code=404, detail="Event not found.")
 
-    # Find users enrolled ONLY in this event — they have no records in any other event
     only_here = db.execute(text("""
         SELECT DISTINCT a.user_id FROM attendance a
         WHERE a.event_id = :eid
@@ -84,7 +116,6 @@ def delete_event(event_id: int, db: Session = Depends(get_db)):
           )
     """), {"eid": event_id}).fetchall()
 
-    # Delete those users' photos and records
     users_deleted = 0
     for row in only_here:
         user = db.query(User).filter(User.id == row.user_id, User.role != "admin").first()
@@ -96,7 +127,6 @@ def delete_event(event_id: int, db: Session = Depends(get_db)):
             db.delete(user)
             users_deleted += 1
 
-    # Delete all attendance records for this event then the event itself
     attendance_deleted = db.query(Attendance).filter(Attendance.event_id == event_id).delete()
     db.delete(event)
     db.commit()

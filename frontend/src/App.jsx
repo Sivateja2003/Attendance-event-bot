@@ -6,6 +6,7 @@ import UsersPage from './pages/UsersPage'
 import LobbyPage from './pages/LobbyPage'
 import LoginPage from './pages/LoginPage'
 import EventRegisterPage from './pages/EventRegisterPage'
+import EventsPage from './pages/EventsPage'
 import SignupPage from './pages/SignupPage'
 import { AuthProvider, RequireAuth, useAuth } from './auth'
 
@@ -36,6 +37,9 @@ function Nav() {
           <>
             <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               Attendance
+            </NavLink>
+            <NavLink to="/events" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+              Events
             </NavLink>
             <NavLink to="/spotregister" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               Spotregister
@@ -74,6 +78,7 @@ export default function App() {
 
           {/* Admin-only routes */}
           <Route path="/" element={<RequireAuth role="admin"><AttendancePage /></RequireAuth>} />
+          <Route path="/events" element={<RequireAuth role="admin"><EventsPage /></RequireAuth>} />
           <Route path="/spotregister" element={<RequireAuth role="admin"><RegisterPage /></RequireAuth>} />
           <Route path="/lobby" element={<RequireAuth role="admin"><LobbyPage /></RequireAuth>} />
           <Route path="/users" element={<RequireAuth role="admin"><UsersPage /></RequireAuth>} />

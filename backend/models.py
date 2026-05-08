@@ -26,6 +26,7 @@ class Event(Base):
     name = Column(String(255), nullable=False)
     description = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
 
 
 class Attendance(Base):

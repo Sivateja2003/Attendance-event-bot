@@ -18,6 +18,7 @@ def run_migrations():
 
     user_cols = {c["name"] for c in insp.get_columns("users")}
     att_cols = {c["name"] for c in insp.get_columns("attendance")}
+    event_cols = {c["name"] for c in insp.get_columns("events")}
 
     with engine.begin() as conn:
         for col, ddl in [
@@ -47,6 +48,9 @@ def run_migrations():
         ]:
             if col not in user_cols:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {ddl}"))
+
+        if "expires_at" not in event_cols:
+            conn.execute(text("ALTER TABLE events ADD COLUMN expires_at DATETIME"))
 
         rows = conn.execute(
             text("SELECT id, embedding FROM users WHERE embedding IS NOT NULL")

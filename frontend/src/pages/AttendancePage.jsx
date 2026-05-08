@@ -65,10 +65,6 @@ export default function AttendancePage() {
   // Event state
   const [events, setEvents] = useState([])
   const [selectedEvent, setSelectedEvent] = useState(null)
-  const [newEventName, setNewEventName] = useState('')
-  const [showNewEventInput, setShowNewEventInput] = useState(false)
-  const [eventLoading, setEventLoading] = useState(false)
-  const [urlModal, setUrlModal] = useState(null)  // { name, url }
 
   function setState(s) {
     stateRef.current = s
@@ -90,39 +86,6 @@ export default function AttendancePage() {
     } catch {
       // ignore
     }
-  }
-
-  async function handleCreateEvent() {
-    const name = newEventName.trim()
-    if (!name) return
-    setEventLoading(true)
-    try {
-      const res = await apiFetch('/api/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      })
-      const event = await res.json()
-      setEvents(prev => [event, ...prev])
-      setSelectedEvent(event)
-      setNewEventName('')
-      setShowNewEventInput(false)
-      setUrlModal({
-        name: event.name,
-        displayUrl: `${window.location.origin}/display/${event.id}`,
-        registerUrl: `${window.location.origin}/register/${event.id}`,
-      })
-    } finally {
-      setEventLoading(false)
-    }
-  }
-
-  async function handleDeleteEvent(e, event) {
-    e.stopPropagation()
-    if (!window.confirm(`Delete event "${event.name}"? This cannot be undone.`)) return
-    await apiFetch(`/api/events/${event.id}`, { method: 'DELETE' })
-    setEvents(prev => prev.filter(ev => ev.id !== event.id))
-    if (selectedEvent?.id === event.id) setSelectedEvent(null)
   }
 
   function handleStartScanning() {
@@ -272,36 +235,6 @@ export default function AttendancePage() {
 
   return (
     <div className="attendance-page">
-
-      {/* ── Display URL modal ── */}
-      {urlModal && (
-        <div className="url-modal-backdrop" onClick={() => setUrlModal(null)}>
-          <div className="url-modal" onClick={e => e.stopPropagation()}>
-            <button className="url-modal-close" onClick={() => setUrlModal(null)}>✕</button>
-            <div className="url-modal-title">Event Created</div>
-            <div className="url-modal-event">{urlModal.name}</div>
-
-            <p className="url-modal-desc">Display screen (no login required):</p>
-            <div className="url-modal-box">{urlModal.displayUrl}</div>
-            <button
-              className="url-modal-copy"
-              onClick={() => navigator.clipboard.writeText(urlModal.displayUrl)}
-            >
-              Copy Display URL
-            </button>
-
-            <p className="url-modal-desc" style={{ marginTop: 16 }}>Self-registration link for attendees:</p>
-            <div className="url-modal-box">{urlModal.registerUrl}</div>
-            <button
-              className="url-modal-copy"
-              onClick={() => navigator.clipboard.writeText(urlModal.registerUrl)}
-            >
-              Copy Register URL
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="camera-wrapper">
         <Webcam
           ref={webcamRef}
@@ -412,40 +345,22 @@ export default function AttendancePage() {
           <div className="activate-overlay">
             <div className="activate-card event-select-card">
               <h2>Select Event</h2>
-              <p>Choose an existing event or create a new one to begin scanning.</p>
+              <p>Choose an event to begin scanning. Manage events in the <strong>Events</strong> section.</p>
 
-              {events.length > 0 && (
+              {events.length === 0 ? (
+                <p className="event-select-empty">No events found. Create one in the Events page.</p>
+              ) : (
                 <div className="event-list">
                   {events.map(e => (
-                    <div key={e.id} className={`event-option ${selectedEvent?.id === e.id ? 'selected' : ''}`} onClick={() => setSelectedEvent(e)}>
+                    <div
+                      key={e.id}
+                      className={`event-option ${selectedEvent?.id === e.id ? 'selected' : ''}`}
+                      onClick={() => setSelectedEvent(e)}
+                    >
                       <span className="event-option-name">{e.name}</span>
-                      <button className="event-delete-btn" onClick={ev => handleDeleteEvent(ev, e)} title="Delete event">✕</button>
+                      {selectedEvent?.id === e.id && <span className="event-option-check">✓</span>}
                     </div>
                   ))}
-                </div>
-              )}
-
-              {!showNewEventInput ? (
-                <button className="btn-secondary" onClick={() => setShowNewEventInput(true)}>
-                  + New Event
-                </button>
-              ) : (
-                <div className="new-event-row">
-                  <input
-                    className="event-input"
-                    placeholder="Event name"
-                    value={newEventName}
-                    onChange={e => setNewEventName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleCreateEvent()}
-                    autoFocus
-                  />
-                  <button
-                    className="btn-activate"
-                    onClick={handleCreateEvent}
-                    disabled={eventLoading || !newEventName.trim()}
-                  >
-                    {eventLoading ? '...' : 'Create'}
-                  </button>
                 </div>
               )}
 
