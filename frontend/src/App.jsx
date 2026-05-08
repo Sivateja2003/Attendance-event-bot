@@ -14,7 +14,7 @@ function Nav() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
-  if (pathname === '/display' || pathname === '/tv') return null
+  if (pathname === '/display' || pathname === '/tv' || pathname.startsWith('/display/')) return null
 
   async function handleLogout() {
     await logout()
@@ -80,6 +80,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<SignupPage />} />
           <Route path="/display" element={<DisplayPage />} />
+          <Route path="/display/:eventId" element={<DisplayPage />} />
           <Route path="/tv" element={<DisplayPage />} />
 
           {/* Admin-only routes */}

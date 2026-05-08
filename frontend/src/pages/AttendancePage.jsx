@@ -68,6 +68,7 @@ export default function AttendancePage() {
   const [newEventName, setNewEventName] = useState('')
   const [showNewEventInput, setShowNewEventInput] = useState(false)
   const [eventLoading, setEventLoading] = useState(false)
+  const [urlModal, setUrlModal] = useState(null)  // { name, url }
 
   function setState(s) {
     stateRef.current = s
@@ -106,6 +107,7 @@ export default function AttendancePage() {
       setSelectedEvent(event)
       setNewEventName('')
       setShowNewEventInput(false)
+      setUrlModal({ name: event.name, url: `${window.location.origin}/display/${event.id}` })
     } finally {
       setEventLoading(false)
     }
@@ -266,6 +268,26 @@ export default function AttendancePage() {
 
   return (
     <div className="attendance-page">
+
+      {/* ── Display URL modal ── */}
+      {urlModal && (
+        <div className="url-modal-backdrop" onClick={() => setUrlModal(null)}>
+          <div className="url-modal" onClick={e => e.stopPropagation()}>
+            <button className="url-modal-close" onClick={() => setUrlModal(null)}>✕</button>
+            <div className="url-modal-title">Display URL Created</div>
+            <div className="url-modal-event">{urlModal.name}</div>
+            <p className="url-modal-desc">Share this link to use as the event display screen (no login required):</p>
+            <div className="url-modal-box">{urlModal.url}</div>
+            <button
+              className="url-modal-copy"
+              onClick={() => { navigator.clipboard.writeText(urlModal.url); }}
+            >
+              Copy URL
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="camera-wrapper">
         <Webcam
           ref={webcamRef}

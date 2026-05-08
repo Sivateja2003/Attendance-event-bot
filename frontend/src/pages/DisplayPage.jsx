@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useParams } from 'react-router-dom'
 import { API_BASE, WS_BASE, apiFetch } from '../config'
 import UserAvatar from '../components/UserAvatar'
 
@@ -21,7 +22,7 @@ function Clock() {
 }
 
 /* ── Idle screen ────────────────────────────────────────────────── */
-function IdleScreen({ connected }) {
+function IdleScreen({ connected, eventName }) {
   return (
     <div className="dp-idle">
       <div className="dp-pulse-wrap">
@@ -29,6 +30,7 @@ function IdleScreen({ connected }) {
         <div className="dp-pulse-dot" />
       </div>
       <div className="dp-brand">FaceAttend</div>
+      {eventName && <div className="dp-idle-event">{eventName}</div>}
       <Clock />
       <div className="dp-idle-sub">
         {connected ? 'Scan your face to check in' : 'Connecting to server…'}
@@ -37,7 +39,7 @@ function IdleScreen({ connected }) {
   )
 }
 
-/* ── Face-scan result card (unchanged) ─────────────────────────── */
+/* ── Face-scan result card ──────────────────────────────────────── */
 function DetailRow({ label, value }) {
   if (!value) return null
   return (
@@ -92,47 +94,17 @@ function PersonCard({ data }) {
   )
 }
 
-/* ── Event picker ───────────────────────────────────────────────── */
-function EventsPanel({ events, onSelect, onBackToIdle }) {
-  return (
-    <div className="dp-events-panel">
-      <button className="dp-back-btn" onClick={onBackToIdle}>← Back to Idle</button>
-      <div className="dp-events-title">Select an Event</div>
-      <p className="dp-events-sub">Tap an event to browse its participants</p>
-      {events.length === 0 ? (
-        <div className="dp-part-empty">No events created yet.</div>
-      ) : (
-        <div className="dp-events-grid">
-          {events.map(ev => (
-            <button key={ev.id} className="dp-event-card" onClick={() => onSelect(ev)}>
-              <div className="dp-event-card-name">{ev.name}</div>
-              {ev.description && (
-                <div className="dp-event-card-desc">{ev.description}</div>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="dp-swipe-hint dp-swipe-hint--left">
-        <span className="dp-swipe-arrow">‹</span> swipe left to go back
-      </div>
-    </div>
-  )
-}
-
 /* ── Single participant profile ─────────────────────────────────── */
-function ParticipantProfile({ person, index, total, eventName, onBackToIdle, onPrev, onNext }) {
+function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, onNext }) {
   return (
     <div className="dp-part-profile" key={`${person.id}-${index}`}>
-      <button className="dp-back-btn" onClick={onBackToIdle}>← Back to Idle</button>
+      <button className="dp-back-btn" onClick={onBack}>← Back</button>
 
-      {/* Counter + event badge */}
       <div className="dp-part-counter">
         {index + 1} / {total}
         {eventName && <span className="dp-part-event-badge">◆ {eventName}</span>}
       </div>
 
-      {/* Photo */}
       <div className="dp-part-photo-side">
         <UserAvatar
           src={person.image_url}
@@ -145,7 +117,6 @@ function ParticipantProfile({ person, index, total, eventName, onBackToIdle, onP
         </UserAvatar>
       </div>
 
-      {/* Info */}
       <div className="dp-part-info-side">
         <div className="dp-part-profile-name">{person.name}</div>
         <div className="dp-badge dp-badge--present" style={{ alignSelf: 'flex-start', marginBottom: 6 }}>
@@ -195,22 +166,11 @@ function ParticipantProfile({ person, index, total, eventName, onBackToIdle, onP
         )}
       </div>
 
-      {/* ── Bottom nav buttons ── */}
       <div className="dp-part-nav">
-        <button
-          className="dp-part-nav-btn"
-          onClick={onPrev}
-          disabled={index === 0}
-          title={index === 0 ? 'Back to events' : 'Previous'}
-        >
-          {index === 0 ? '← Events' : '← Previous'}
+        <button className="dp-part-nav-btn" onClick={onPrev} disabled={index === 0}>
+          ← Previous
         </button>
-        <button
-          className="dp-part-nav-btn"
-          onClick={onNext}
-          disabled={index >= total - 1}
-          title="Next"
-        >
+        <button className="dp-part-nav-btn" onClick={onNext} disabled={index >= total - 1}>
           Next →
         </button>
       </div>
@@ -220,45 +180,54 @@ function ParticipantProfile({ person, index, total, eventName, onBackToIdle, onP
 
 /* ── Main DisplayPage ───────────────────────────────────────────── */
 export default function DisplayPage() {
+  const { eventId } = useParams()
+  const numericEventId = eventId ? Number(eventId) : null
+
   const [person, setPerson]             = useState(null)
   const [connected, setConnected]       = useState(false)
-
-  // view: 'main' | 'events' | 'profiles'
-  const [view, setView]                 = useState('main')
-  const [events, setEvents]             = useState([])
-  const [selectedEvent, setSelectedEvent] = useState(null)
+  const [eventName, setEventName]       = useState(null)
+  const [view, setView]                 = useState('main')  // 'main' | 'profiles'
   const [participants, setParticipants] = useState([])
   const [partIndex, setPartIndex]       = useState(0)
   const [partLoading, setPartLoading]   = useState(false)
 
   const clearRef    = useRef(null)
-  const wsRef       = useRef(null)
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
   const mouseStartX = useRef(null)
 
-  /* ── Load events list ── */
+  /* ── Fetch event name ── */
   useEffect(() => {
-    apiFetch('/api/events').then(r => r.json()).then(setEvents).catch(() => {})
-  }, [])
+    if (!numericEventId) return
+    apiFetch('/api/events')
+      .then(r => r.json())
+      .then(events => {
+        const ev = events.find(e => e.id === numericEventId)
+        if (ev) setEventName(ev.name)
+      })
+      .catch(() => {})
+  }, [numericEventId])
 
-  /* ── Load participants for selected event ── */
-  const loadParticipants = useCallback((eventId) => {
-    apiFetch(`/api/attendance/present?event_id=${eventId}`)
+  /* ── Load participants ── */
+  const loadParticipants = useCallback(() => {
+    const url = numericEventId
+      ? `/api/attendance/present?event_id=${numericEventId}`
+      : '/api/attendance/present'
+    setPartLoading(true)
+    apiFetch(url)
       .then(r => r.json())
       .then(data => { setParticipants(data); setPartLoading(false) })
       .catch(() => setPartLoading(false))
-  }, [])
+  }, [numericEventId])
 
   useEffect(() => {
-    if (!selectedEvent) return
-    setPartLoading(true)
-    loadParticipants(selectedEvent.id)
-    const t = setInterval(() => loadParticipants(selectedEvent.id), REFRESH_MS)
+    if (view !== 'profiles') return
+    loadParticipants()
+    const t = setInterval(loadParticipants, REFRESH_MS)
     return () => clearInterval(t)
-  }, [selectedEvent, loadParticipants])
+  }, [view, loadParticipants])
 
-  /* ── Clamp index when participants list changes ── */
+  /* ── Clamp index ── */
   useEffect(() => {
     if (participants.length > 0 && partIndex >= participants.length)
       setPartIndex(participants.length - 1)
@@ -270,10 +239,11 @@ export default function DisplayPage() {
 
     function connect() {
       const ws = new WebSocket(WS_URL)
-      wsRef.current = ws
       ws.onopen  = () => setConnected(true)
       ws.onmessage = (e) => {
         const data = JSON.parse(e.data)
+        // If event-scoped, ignore messages from other events
+        if (numericEventId !== null && data.event_id !== numericEventId) return
         clearTimeout(clearRef.current)
         setPerson(data)
         setView('main')
@@ -290,26 +260,10 @@ export default function DisplayPage() {
     return () => {
       clearTimeout(reconnectTimer)
       clearTimeout(clearRef.current)
-      wsRef.current?.close()
     }
-  }, [])
+  }, [numericEventId])
 
-  /* ── Navigation helpers ── */
-  function goToIdle() {
-    setView('main')
-    setSelectedEvent(null)
-    setParticipants([])
-    setPartIndex(0)
-  }
-
-  function handleEventSelect(ev) {
-    setSelectedEvent(ev)
-    setPartIndex(0)
-    setParticipants([])
-    setView('profiles')
-  }
-
-  /* ── Swipe ── */
+  /* ── Swipe / drag ── */
   function handleTouchStart(e) {
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
@@ -330,21 +284,16 @@ export default function DisplayPage() {
 
   function handleSwipe(dx) {
     if (Math.abs(dx) < 60) return
-
     if (view === 'main') {
-      if (dx > 0 && events.length > 0) setView('events')
-      return
-    }
-    if (view === 'events') {
-      if (dx < 0) setView('main')
+      if (dx < 0) { setView('profiles'); loadParticipants() }
       return
     }
     if (view === 'profiles') {
       if (dx > 0) {
-        if (partIndex < participants.length - 1) setPartIndex(i => i + 1)
-      } else {
         if (partIndex > 0) setPartIndex(i => i - 1)
-        else setView('events')
+        else setView('main')
+      } else {
+        if (partIndex < participants.length - 1) setPartIndex(i => i + 1)
       }
     }
   }
@@ -361,36 +310,26 @@ export default function DisplayPage() {
     >
       <div className={`dp-flipper ${isFlipped ? 'dp-flipper--flipped' : ''}`}>
 
-        {/* ── Front face — main display ── */}
+        {/* ── Front — main display ── */}
         <div className="dp-face dp-face--front">
-          {person ? <PersonCard data={person} /> : <IdleScreen connected={connected} />}
-          {events.length > 0 && (
-            <div className="dp-swipe-hint dp-swipe-hint--right">
-              swipe right <span className="dp-swipe-arrow">›</span>
-            </div>
-          )}
+          {person ? <PersonCard data={person} /> : <IdleScreen connected={connected} eventName={eventName} />}
+          <div className="dp-swipe-hint dp-swipe-hint--left">
+            <span className="dp-swipe-arrow">‹</span> swipe to see attendees
+          </div>
         </div>
 
-        {/* ── Back face — event picker OR profiles ── */}
+        {/* ── Back — participant profiles ── */}
         <div className="dp-face dp-face--back">
-          {view === 'events' && (
-            <EventsPanel
-              events={events}
-              onSelect={handleEventSelect}
-              onBackToIdle={goToIdle}
-            />
-          )}
-
           {view === 'profiles' && (
             <>
               {partLoading && participants.length === 0 ? (
                 <div className="dp-part-loading">Loading participants…</div>
               ) : participants.length === 0 ? (
                 <div className="dp-part-empty">
-                  <div>No one has checked in for</div>
-                  <div style={{ color: 'var(--accent)', marginTop: 8 }}>{selectedEvent?.name}</div>
-                  <button className="dp-back-btn" style={{ position: 'static', marginTop: 24 }} onClick={() => setView('events')}>
-                    ← Choose another event
+                  <div>No one has checked in yet.</div>
+                  {eventName && <div style={{ color: 'var(--accent)', marginTop: 8 }}>{eventName}</div>}
+                  <button className="dp-back-btn" style={{ position: 'static', marginTop: 24 }} onClick={() => setView('main')}>
+                    ← Back
                   </button>
                 </div>
               ) : (
@@ -399,9 +338,9 @@ export default function DisplayPage() {
                   person={participants[partIndex]}
                   index={partIndex}
                   total={participants.length}
-                  eventName={selectedEvent?.name}
-                  onBackToIdle={goToIdle}
-                  onPrev={() => partIndex > 0 ? setPartIndex(i => i - 1) : setView('events')}
+                  eventName={eventName}
+                  onBack={() => setView('main')}
+                  onPrev={() => partIndex > 0 ? setPartIndex(i => i - 1) : setView('main')}
                   onNext={() => partIndex < participants.length - 1 && setPartIndex(i => i + 1)}
                 />
               )}
@@ -410,7 +349,7 @@ export default function DisplayPage() {
                 <>
                   <div className="dp-swipe-hint dp-swipe-hint--left">
                     <span className="dp-swipe-arrow">‹</span>
-                    {partIndex === 0 ? ' events' : ' previous'}
+                    {partIndex === 0 ? ' back' : ' previous'}
                   </div>
                   {partIndex < participants.length - 1 && (
                     <div className="dp-swipe-hint dp-swipe-hint--right">

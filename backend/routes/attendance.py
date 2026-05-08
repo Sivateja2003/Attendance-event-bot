@@ -115,6 +115,7 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
                 # Face recognised but not enrolled for this event
                 ws_manager.broadcast({
                     "type": "not_enrolled",
+                    "event_id": request.event_id,
                     "user": {"name": row.name, "image_url": row.image_url},
                     "event_name": event_name,
                     "timestamp": datetime.utcnow().isoformat(),
@@ -154,6 +155,7 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
         if not already_attended:
             ws_manager.broadcast({
                 "type": "match",
+                "event_id": request.event_id,
                 "user": {
                     "name": row.name,
                     "email": row.email,
