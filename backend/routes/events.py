@@ -39,6 +39,29 @@ def create_event(body: EventCreate, db: Session = Depends(get_db)):
     return {"id": event.id, "name": event.name, "description": event.description, "created_at": event.created_at}
 
 
+@router.get("/{event_id}/users", dependencies=[Depends(require_admin)])
+def event_users(event_id: int, db: Session = Depends(get_db)):
+    """All users enrolled (or present) for a specific event."""
+    from sqlalchemy import text
+    rows = db.execute(text("""
+        SELECT u.id, u.name, u.email, u.phone, u.linkedin, u.occupation,
+               u.image_url, u.registered_at, a.status
+        FROM attendance a
+        JOIN users u ON u.id = a.user_id
+        WHERE a.event_id = :eid AND u.role != 'admin'
+        ORDER BY u.name
+    """), {"eid": event_id}).fetchall()
+    return [
+        {
+            "id": r.id, "name": r.name, "email": r.email, "phone": r.phone,
+            "linkedin": r.linkedin, "occupation": r.occupation,
+            "image_url": r.image_url, "registered_at": r.registered_at,
+            "status": r.status,
+        }
+        for r in rows
+    ]
+
+
 @router.delete("/{event_id}", dependencies=[Depends(require_admin)])
 def delete_event(event_id: int, db: Session = Depends(get_db)):
     event = db.query(Event).filter(Event.id == event_id).first()

@@ -1183,6 +1183,47 @@ html, body, #root {
   border-radius: 999px;
 }
 .ul-sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.ul-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.ul-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ul-tab:hover { border-color: var(--accent); }
+.ul-tab--active { border-color: var(--accent); background: rgba(108,99,255,0.12); color: var(--accent); font-weight: 600; }
+.ul-tab-count {
+  background: var(--bg);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ul-tab--active .ul-tab-count { background: rgba(108,99,255,0.2); }
+.ul-status-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.ul-status-present { background: rgba(34,197,94,0.15); color: #22c55e; }
+.ul-status-enrolled { background: rgba(108,99,255,0.12); color: var(--accent); }
 .ul-search {
   width: 100%;
   padding: 12px 16px;
