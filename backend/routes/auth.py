@@ -11,7 +11,7 @@ from auth import create_access_token, get_current_user, hash_password, verify_pa
 from database import get_db
 from face_service import UPLOAD_DIR, get_embedding, save_base64_image, save_upload_bytes
 from models import Attendance, Event, User
-from notifications import send_registration_email, send_registration_whatsapp
+from notifications import send_registration_email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -128,10 +128,6 @@ async def signup(
         background_tasks.add_task(
             send_registration_email, user.email, user.name, event_name, display_url
         )
-        if user.phone:
-            background_tasks.add_task(
-                send_registration_whatsapp, user.phone, user.name, event_name, display_url
-            )
 
     if password:
         return _set_auth_cookie(response, user)
