@@ -18,6 +18,37 @@ class EventCreate(BaseModel):
     expires_at: str | None = None  # YYYY-MM-DD
 
 
+def _delete_event_cascade(event_id: int, db: Session):
+    """Delete an event, its exclusive users (with photos), and all attendance records."""
+    only_here = db.execute(text("""
+        SELECT DISTINCT a.user_id FROM attendance a
+        WHERE a.event_id = :eid
+          AND a.user_id NOT IN (
+              SELECT DISTINCT user_id FROM attendance
+              WHERE (event_id != :eid OR event_id IS NULL)
+                AND event_id IS NOT NULL
+          )
+          AND a.user_id NOT IN (
+              SELECT DISTINCT user_id FROM attendance
+              WHERE event_id IS NULL
+          )
+    """), {"eid": event_id}).fetchall()
+
+    for row in only_here:
+        user = db.query(User).filter(User.id == row.user_id, User.role != "admin").first()
+        if user:
+            if user.image_url:
+                filepath = os.path.join(UPLOAD_DIR, os.path.basename(user.image_url))
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+            db.delete(user)
+
+    db.query(Attendance).filter(Attendance.event_id == event_id).delete()
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if event:
+        db.delete(event)
+
+
 def _purge_expired(db: Session):
     try:
         today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -26,8 +57,7 @@ def _purge_expired(db: Session):
             Event.expires_at < today_start,
         ).all()
         for event in expired:
-            db.query(Attendance).filter(Attendance.event_id == event.id).delete()
-            db.delete(event)
+            _delete_event_cascade(event.id, db)
         if expired:
             db.commit()
     except Exception:
@@ -104,33 +134,6 @@ def delete_event(event_id: int, db: Session = Depends(get_db)):
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found.")
-
-    only_here = db.execute(text("""
-        SELECT DISTINCT a.user_id FROM attendance a
-        WHERE a.event_id = :eid
-          AND a.user_id NOT IN (
-              SELECT DISTINCT user_id FROM attendance
-              WHERE (event_id != :eid OR event_id IS NULL)
-                AND event_id IS NOT NULL
-          )
-          AND a.user_id NOT IN (
-              SELECT DISTINCT user_id FROM attendance
-              WHERE event_id IS NULL
-          )
-    """), {"eid": event_id}).fetchall()
-
-    users_deleted = 0
-    for row in only_here:
-        user = db.query(User).filter(User.id == row.user_id, User.role != "admin").first()
-        if user:
-            if user.image_url:
-                filepath = os.path.join(UPLOAD_DIR, os.path.basename(user.image_url))
-                if os.path.exists(filepath):
-                    os.remove(filepath)
-            db.delete(user)
-            users_deleted += 1
-
-    attendance_deleted = db.query(Attendance).filter(Attendance.event_id == event_id).delete()
-    db.delete(event)
+    _delete_event_cascade(event_id, db)
     db.commit()
-    return {"success": True, "attendance_deleted": attendance_deleted, "users_deleted": users_deleted}
+    return {"success": True}
