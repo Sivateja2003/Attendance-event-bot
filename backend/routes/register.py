@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import User, Attendance, Event
 from face_service import get_embedding, save_upload_bytes, save_base64_image, UPLOAD_DIR
-from auth import require_admin, hash_password
+from auth import require_admin
 import numpy as np
 import os
 
@@ -19,7 +19,6 @@ async def register_user(
     linkedin: str = Form(None),
     occupation: str = Form(None),
     event_id: int = Form(None),
-    password: str = Form(None),
     image: UploadFile = File(None),
     image_base64: str = Form(None),
     db: Session = Depends(get_db),
@@ -58,7 +57,6 @@ async def register_user(
         occupation=occupation.strip() if occupation else None,
         image_url=image_url,
         embedding=np.array(embedding, dtype=np.float32).tobytes(),
-        password_hash=hash_password(password) if password else None,
     )
     db.add(user)
     db.commit()

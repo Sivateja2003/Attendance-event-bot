@@ -64,7 +64,7 @@ async def signup(
     response: Response,
     name: str = Form(...),
     email: str = Form(...),
-    password: str = Form(...),
+    password: str = Form(None),
     phone: str = Form(None),
     linkedin: str = Form(None),
     occupation: str = Form(None),
@@ -110,7 +110,7 @@ async def signup(
         occupation=occupation.strip() if occupation else None,
         image_url=image_url,
         embedding=np.array(embedding, dtype=np.float32).tobytes(),
-        password_hash=hash_password(password),
+        password_hash=hash_password(password) if password else None,
         role="user",
     )
     db.add(user)
@@ -121,4 +121,6 @@ async def signup(
         db.add(Attendance(user_id=user.id, event_id=event_id, status="enrolled"))
         db.commit()
 
-    return _set_auth_cookie(response, user)
+    if password:
+        return _set_auth_cookie(response, user)
+    return {"id": user.id, "name": user.name, "email": user.email, "role": user.role}

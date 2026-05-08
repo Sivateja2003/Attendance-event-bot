@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy import text, inspect
 from database import engine, Base
-from routes import register, attendance, events, import_sheet, auth as auth_routes, me as me_routes
+from routes import register, attendance, events, import_sheet, auth as auth_routes
 import ws_manager
 import os
 
@@ -115,7 +115,6 @@ os.makedirs(upload_dir, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=upload_dir), name="uploads")
 
 app.include_router(auth_routes.router)
-app.include_router(me_routes.router)
 app.include_router(register.router)
 app.include_router(attendance.router)
 app.include_router(events.router)

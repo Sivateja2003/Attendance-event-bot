@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
 
 export default function LoginPage() {
@@ -16,7 +16,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const user = await login(email, password)
-      navigate(user.role === 'admin' ? '/' : '/my', { replace: true })
+      navigate('/', { replace: true })
     } catch (err) {
       setError(err.message)
     } finally {
@@ -65,12 +65,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="login-footer">
-          New here?{' '}
-          <Link to="/register" className="login-link">
-            Create an account
-          </Link>
-        </p>
       </div>
     </div>
   )

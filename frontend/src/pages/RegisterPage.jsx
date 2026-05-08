@@ -5,7 +5,7 @@ import { apiFetch } from '../config'
 export default function RegisterPage() {
   const webcamRef = useRef(null)
 
-  const [form, setForm] = useState({ name: '', email: '', phone: '', linkedin: '', occupation: '', password: '', confirmPassword: '' })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', linkedin: '', occupation: '' })
   const [tab, setTab] = useState('upload')
   const [preview, setPreview] = useState(null)
   const [uploadFile, setUploadFile] = useState(null)
@@ -60,9 +60,6 @@ export default function RegisterPage() {
     e.preventDefault()
     if (!form.name.trim()) return showStatus('error', 'Full name is required.')
     if (!form.email.trim()) return showStatus('error', 'Email is required.')
-    if (!form.password) return showStatus('error', 'Password is required.')
-    if (form.password.length < 6) return showStatus('error', 'Password must be at least 6 characters.')
-    if (form.password !== form.confirmPassword) return showStatus('error', 'Passwords do not match.')
     if (!selectedEvent) return showStatus('error', 'Please select an event.')
     if (!uploadFile && !captured) return showStatus('error', 'Please provide a face photo.')
 
@@ -71,7 +68,7 @@ export default function RegisterPage() {
 
     const fd = new FormData()
     Object.entries(form).forEach(([k, v]) => {
-      if (k !== 'confirmPassword') fd.append(k, v.trim())
+      fd.append(k, v.trim())
     })
     if (selectedEvent) fd.append('event_id', selectedEvent)
     if (uploadFile) fd.append('image', uploadFile)
@@ -85,7 +82,7 @@ export default function RegisterPage() {
       } else {
         const evtMsg = data.event_name ? ` for "${data.event_name}"` : ''
         showStatus('success', `${data.name} registered successfully${evtMsg}!`)
-        setForm({ name: '', email: '', phone: '', linkedin: '', occupation: '', password: '', confirmPassword: '' })
+        setForm({ name: '', email: '', phone: '', linkedin: '', occupation: '' })
         setSelectedEvent('')
         setPreview(null)
         setUploadFile(null)
@@ -166,20 +163,6 @@ export default function RegisterPage() {
             <label>LinkedIn Profile URL</label>
             <input name="linkedin" placeholder="https://linkedin.com/in/yourprofile"
               value={form.linkedin} onChange={handleField} disabled={submitting} />
-          </div>
-
-          {/* Row 3: Password + Confirm Password */}
-          <div className="sr-row">
-            <div className="sr-field">
-              <label>Password <span className="req">*</span></label>
-              <input name="password" type="password" placeholder="Min. 6 characters"
-                value={form.password} onChange={handleField} disabled={submitting} />
-            </div>
-            <div className="sr-field">
-              <label>Confirm Password <span className="req">*</span></label>
-              <input name="confirmPassword" type="password" placeholder="Repeat password"
-                value={form.confirmPassword} onChange={handleField} disabled={submitting} />
-            </div>
           </div>
 
           {/* Event Name */}

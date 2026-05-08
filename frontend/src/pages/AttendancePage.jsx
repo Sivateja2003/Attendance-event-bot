@@ -107,7 +107,11 @@ export default function AttendancePage() {
       setSelectedEvent(event)
       setNewEventName('')
       setShowNewEventInput(false)
-      setUrlModal({ name: event.name, url: `${window.location.origin}/display/${event.id}` })
+      setUrlModal({
+        name: event.name,
+        displayUrl: `${window.location.origin}/display/${event.id}`,
+        registerUrl: `${window.location.origin}/register/${event.id}`,
+      })
     } finally {
       setEventLoading(false)
     }
@@ -274,15 +278,25 @@ export default function AttendancePage() {
         <div className="url-modal-backdrop" onClick={() => setUrlModal(null)}>
           <div className="url-modal" onClick={e => e.stopPropagation()}>
             <button className="url-modal-close" onClick={() => setUrlModal(null)}>✕</button>
-            <div className="url-modal-title">Display URL Created</div>
+            <div className="url-modal-title">Event Created</div>
             <div className="url-modal-event">{urlModal.name}</div>
-            <p className="url-modal-desc">Share this link to use as the event display screen (no login required):</p>
-            <div className="url-modal-box">{urlModal.url}</div>
+
+            <p className="url-modal-desc">Display screen (no login required):</p>
+            <div className="url-modal-box">{urlModal.displayUrl}</div>
             <button
               className="url-modal-copy"
-              onClick={() => { navigator.clipboard.writeText(urlModal.url); }}
+              onClick={() => navigator.clipboard.writeText(urlModal.displayUrl)}
             >
-              Copy URL
+              Copy Display URL
+            </button>
+
+            <p className="url-modal-desc" style={{ marginTop: 16 }}>Self-registration link for attendees:</p>
+            <div className="url-modal-box">{urlModal.registerUrl}</div>
+            <button
+              className="url-modal-copy"
+              onClick={() => navigator.clipboard.writeText(urlModal.registerUrl)}
+            >
+              Copy Register URL
             </button>
           </div>
         </div>

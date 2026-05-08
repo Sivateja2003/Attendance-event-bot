@@ -5,8 +5,8 @@ import DisplayPage from './pages/DisplayPage'
 import UsersPage from './pages/UsersPage'
 import LobbyPage from './pages/LobbyPage'
 import LoginPage from './pages/LoginPage'
+import EventRegisterPage from './pages/EventRegisterPage'
 import SignupPage from './pages/SignupPage'
-import UserPortalPage from './pages/UserPortalPage'
 import { AuthProvider, RequireAuth, useAuth } from './auth'
 
 function Nav() {
@@ -15,6 +15,7 @@ function Nav() {
   const navigate = useNavigate()
 
   if (pathname.startsWith('/display')) return null
+  if (pathname.startsWith('/register')) return null
 
   async function handleLogout() {
     await logout()
@@ -26,14 +27,9 @@ function Nav() {
       <span className="nav-brand">FaceAttend</span>
       <div className="nav-links">
         {!user && (
-          <>
-            <NavLink to="/login" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-              Login
-            </NavLink>
-            <NavLink to="/register" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-              Register
-            </NavLink>
-          </>
+          <NavLink to="/login" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+            Login
+          </NavLink>
         )}
 
         {user?.role === 'admin' && (
@@ -53,13 +49,7 @@ function Nav() {
           </>
         )}
 
-        {user?.role === 'user' && (
-          <NavLink to="/my" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-            My Portal
-          </NavLink>
-        )}
-
-        {user && (
+{user && (
           <div className="nav-user-area">
             <span className="nav-user-name">{user.name}</span>
             <button className="nav-logout-btn" onClick={handleLogout}>Logout</button>
@@ -80,15 +70,13 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<SignupPage />} />
           <Route path="/display/:eventId" element={<DisplayPage />} />
+          <Route path="/register/:eventId" element={<EventRegisterPage />} />
 
           {/* Admin-only routes */}
           <Route path="/" element={<RequireAuth role="admin"><AttendancePage /></RequireAuth>} />
           <Route path="/spotregister" element={<RequireAuth role="admin"><RegisterPage /></RequireAuth>} />
           <Route path="/lobby" element={<RequireAuth role="admin"><LobbyPage /></RequireAuth>} />
           <Route path="/users" element={<RequireAuth role="admin"><UsersPage /></RequireAuth>} />
-
-          {/* User-only route */}
-          <Route path="/my" element={<RequireAuth role="user"><UserPortalPage /></RequireAuth>} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

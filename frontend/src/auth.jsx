@@ -52,7 +52,7 @@ export function RequireAuth({ role, children }) {
     if (user === null) {
       navigate('/login', { replace: true })
     } else if (user && role && user.role !== role) {
-      navigate(user.role === 'admin' ? '/' : '/my', { replace: true })
+      navigate('/login', { replace: true })
     }
   }, [user, role, navigate])
 

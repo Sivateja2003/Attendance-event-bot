@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useRef, useState, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
 import Webcam from 'react-webcam'
 import { apiFetch } from '../config'
 
-export default function SignupPage() {
+export default function EventRegisterPage() {
+  const { eventId } = useParams()
   const webcamRef = useRef(null)
 
   const [form, setForm] = useState({ name: '', email: '', phone: '', linkedin: '', occupation: '' })
@@ -14,7 +15,20 @@ export default function SignupPage() {
   const [submitting, setSubmitting] = useState(false)
   const [status, setStatus] = useState(null)
   const [statusMsg, setStatusMsg] = useState('')
-  const [done, setDone] = useState(false)
+  const [eventName, setEventName] = useState(null)
+  const [eventNotFound, setEventNotFound] = useState(false)
+
+  useEffect(() => {
+    if (!eventId) return
+    apiFetch('/api/events')
+      .then(r => r.json())
+      .then(events => {
+        const ev = events.find(e => e.id === Number(eventId))
+        if (ev) setEventName(ev.name)
+        else setEventNotFound(true)
+      })
+      .catch(() => {})
+  }, [eventId])
 
   function handleField(e) {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }))
@@ -63,6 +77,7 @@ export default function SignupPage() {
     if (form.phone.trim()) fd.append('phone', form.phone.trim())
     if (form.linkedin.trim()) fd.append('linkedin', form.linkedin.trim())
     if (form.occupation.trim()) fd.append('occupation', form.occupation.trim())
+    fd.append('event_id', eventId)
     if (uploadFile) fd.append('image', uploadFile)
     else fd.append('image_base64', captured)
 
@@ -72,7 +87,12 @@ export default function SignupPage() {
       if (!res.ok) {
         showStatus('error', data.detail || 'Registration failed.')
       } else {
-        setDone(true)
+        showStatus('success', `Successfully registered for "${eventName || 'the event'}"! You're all set.`)
+        setForm({ name: '', email: '', phone: '', linkedin: '', occupation: '' })
+        setPreview(null)
+        setUploadFile(null)
+        setCaptured(null)
+        setTab('upload')
       }
     } catch {
       showStatus('error', 'Network error. Make sure the backend is running.')
@@ -81,20 +101,13 @@ export default function SignupPage() {
     }
   }
 
-  if (done) {
+  if (eventNotFound) {
     return (
       <div className="sr-page">
-        <div className="sr-card" style={{ textAlign: 'center', padding: '56px 40px' }}>
-          <div style={{ fontSize: '3.5rem', marginBottom: 20 }}>✓</div>
-          <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: 10 }}>
-            You're registered!
-          </h2>
-          <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 32, lineHeight: 1.7 }}>
-            Your face has been enrolled successfully. You'll be recognised at the check-in kiosk.
-          </p>
-          <Link to="/login" className="sr-submit" style={{ display: 'inline-block', textDecoration: 'none', padding: '13px 40px' }}>
-            Sign In
-          </Link>
+        <div className="sr-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
+          <div style={{ fontSize: '3rem', marginBottom: 16 }}>⚠</div>
+          <h2 style={{ marginBottom: 8 }}>Event Not Found</h2>
+          <p style={{ color: 'var(--muted, #888)' }}>This event no longer exists. Ask the organiser for the correct registration link.</p>
         </div>
       </div>
     )
@@ -104,12 +117,16 @@ export default function SignupPage() {
     <div className="sr-page">
       <div className="sr-card">
         <div className="sr-header">
-          <h1 className="sr-title">Create Account</h1>
-          <p className="sr-sub">Fill in your details and upload a face photo to get started.</p>
+          <h1 className="sr-title">Register</h1>
+          {eventName
+            ? <p className="sr-sub">Registering for <strong>{eventName}</strong>. Fill in your details and capture your face photo.</p>
+            : <p className="sr-sub">Loading event details…</p>
+          }
         </div>
 
         <form onSubmit={handleSubmit} className="sr-form">
 
+          {/* Name + Email */}
           <div className="sr-row">
             <div className="sr-field">
               <label>Full Name <span className="req">*</span></label>
@@ -123,6 +140,7 @@ export default function SignupPage() {
             </div>
           </div>
 
+          {/* Phone + Occupation */}
           <div className="sr-row">
             <div className="sr-field">
               <label>Phone Number</label>
@@ -136,12 +154,14 @@ export default function SignupPage() {
             </div>
           </div>
 
+          {/* LinkedIn */}
           <div className="sr-field">
             <label>LinkedIn Profile URL</label>
             <input name="linkedin" placeholder="https://linkedin.com/in/yourprofile"
               value={form.linkedin} onChange={handleField} disabled={submitting} />
           </div>
 
+          {/* Face photo */}
           <div className="sr-photo-section">
             <label>Face Photo <span className="req">*</span></label>
             <div className="sr-tabs">
@@ -156,10 +176,10 @@ export default function SignupPage() {
             <div className="sr-photo-area">
               {tab === 'upload' && (
                 <>
-                  <input type="file" accept="image/*" id="sp-file" className="sr-hidden"
+                  <input type="file" accept="image/*" id="er-file" className="sr-hidden"
                     onChange={handleFileChange} disabled={submitting} />
                   {!preview ? (
-                    <label htmlFor="sp-file" className="sr-drop">
+                    <label htmlFor="er-file" className="sr-drop">
                       <div className="sr-drop-icon">+</div>
                       <span>Click to upload a photo</span>
                       <span className="sr-drop-hint">JPG, PNG — clear front-facing face</span>
@@ -167,7 +187,7 @@ export default function SignupPage() {
                   ) : (
                     <div className="sr-preview-wrap">
                       <img src={preview} alt="preview" className="sr-preview" />
-                      <label htmlFor="sp-file" className="sr-retake">Change Photo</label>
+                      <label htmlFor="er-file" className="sr-retake">Change Photo</label>
                     </div>
                   )}
                 </>
@@ -203,17 +223,9 @@ export default function SignupPage() {
             <div className={`sr-status ${status}`}>{statusMsg}</div>
           )}
 
-          <button type="submit" className="sr-submit" disabled={submitting}>
-            {submitting ? 'Registering...' : 'Create Account'}
+          <button type="submit" className="sr-submit" disabled={submitting || !eventName}>
+            {submitting ? 'Registering...' : 'Register'}
           </button>
-
-          <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--muted)', marginTop: -8 }}>
-            Already have an account?{' '}
-            <Link to="/login" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>
-              Sign in
-            </Link>
-          </p>
-
         </form>
       </div>
     </div>

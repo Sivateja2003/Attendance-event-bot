@@ -98,7 +98,14 @@ export default function LobbyPage() {
                       title="Copy display URL"
                       onClick={() => navigator.clipboard.writeText(`${window.location.origin}/display/${ev.id}`)}
                     >
-                      Copy Display URL
+                      Display URL
+                    </button>
+                    <button
+                      className="lb-picker-copy"
+                      title="Copy register URL"
+                      onClick={() => navigator.clipboard.writeText(`${window.location.origin}/register/${ev.id}`)}
+                    >
+                      Register URL
                     </button>
                   </div>
                 ))}
@@ -196,7 +203,13 @@ export default function LobbyPage() {
             className="lb-change-event"
             onClick={() => navigator.clipboard.writeText(`${window.location.origin}/display/${selectedEvent.id}`)}
           >
-            Copy Display URL
+            Display URL
+          </button>
+          <button
+            className="lb-change-event"
+            onClick={() => navigator.clipboard.writeText(`${window.location.origin}/register/${selectedEvent.id}`)}
+          >
+            Register URL
           </button>
           <button className="lb-change-event" onClick={() => { setSelectedEvent(null); setAttendees([]) }}>
             Change Event
