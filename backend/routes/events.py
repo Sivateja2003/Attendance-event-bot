@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from pydantic import BaseModel
 from database import get_db
-from models import Event, Attendance
+from models import Event, Attendance, User
+from face_service import UPLOAD_DIR
 from auth import require_admin
+import os
 
 router = APIRouter(prefix="/api/events", tags=["events"])
 
@@ -41,8 +44,6 @@ def create_event(body: EventCreate, db: Session = Depends(get_db)):
 
 @router.get("/{event_id}/users", dependencies=[Depends(require_admin)])
 def event_users(event_id: int, db: Session = Depends(get_db)):
-    """All users enrolled (or present) for a specific event."""
-    from sqlalchemy import text
     rows = db.execute(text("""
         SELECT u.id, u.name, u.email, u.phone, u.linkedin, u.occupation,
                u.image_url, u.registered_at, a.status
@@ -67,7 +68,36 @@ def delete_event(event_id: int, db: Session = Depends(get_db)):
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found.")
-    deleted = db.query(Attendance).filter(Attendance.event_id == event_id).delete()
+
+    # Find users enrolled ONLY in this event — they have no records in any other event
+    only_here = db.execute(text("""
+        SELECT DISTINCT a.user_id FROM attendance a
+        WHERE a.event_id = :eid
+          AND a.user_id NOT IN (
+              SELECT DISTINCT user_id FROM attendance
+              WHERE (event_id != :eid OR event_id IS NULL)
+                AND event_id IS NOT NULL
+          )
+          AND a.user_id NOT IN (
+              SELECT DISTINCT user_id FROM attendance
+              WHERE event_id IS NULL
+          )
+    """), {"eid": event_id}).fetchall()
+
+    # Delete those users' photos and records
+    users_deleted = 0
+    for row in only_here:
+        user = db.query(User).filter(User.id == row.user_id, User.role != "admin").first()
+        if user:
+            if user.image_url:
+                filepath = os.path.join(UPLOAD_DIR, os.path.basename(user.image_url))
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+            db.delete(user)
+            users_deleted += 1
+
+    # Delete all attendance records for this event then the event itself
+    attendance_deleted = db.query(Attendance).filter(Attendance.event_id == event_id).delete()
     db.delete(event)
     db.commit()
-    return {"success": True, "attendance_deleted": deleted}
+    return {"success": True, "attendance_deleted": attendance_deleted, "users_deleted": users_deleted}

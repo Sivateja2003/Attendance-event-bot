@@ -186,6 +186,7 @@ export default function DisplayPage() {
   const [person, setPerson]             = useState(null)
   const [connected, setConnected]       = useState(false)
   const [eventName, setEventName]       = useState(null)
+  const [eventNotFound, setEventNotFound] = useState(false)
   const [view, setView]                 = useState('main')  // 'main' | 'profiles'
   const [participants, setParticipants] = useState([])
   const [partIndex, setPartIndex]       = useState(0)
@@ -204,6 +205,7 @@ export default function DisplayPage() {
       .then(events => {
         const ev = events.find(e => e.id === numericEventId)
         if (ev) setEventName(ev.name)
+        else setEventNotFound(true)
       })
       .catch(() => {})
   }, [numericEventId])
@@ -299,6 +301,23 @@ export default function DisplayPage() {
   }
 
   const isFlipped = view !== 'main'
+
+  if (eventNotFound) {
+    return (
+      <div className="dp-page">
+        <div className="dp-idle">
+          <div className="dp-brand">FaceAttend</div>
+          <div style={{ fontSize: '3rem', margin: '16px 0' }}>⚠</div>
+          <div style={{ fontSize: '1.3rem', color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>
+            This event no longer exists.
+          </div>
+          <div style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.35)', marginTop: 8 }}>
+            Ask the organiser for the updated display link.
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
