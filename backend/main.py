@@ -50,7 +50,8 @@ def run_migrations():
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {ddl}"))
 
         if "expires_at" not in event_cols:
-            conn.execute(text("ALTER TABLE events ADD COLUMN expires_at DATETIME"))
+            # TIMESTAMP works in both PostgreSQL and SQLite (DATETIME is SQLite-only)
+            conn.execute(text("ALTER TABLE events ADD COLUMN expires_at TIMESTAMP"))
 
         rows = conn.execute(
             text("SELECT id, embedding FROM users WHERE embedding IS NOT NULL")

@@ -19,16 +19,19 @@ class EventCreate(BaseModel):
 
 
 def _purge_expired(db: Session):
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    expired = db.query(Event).filter(
-        Event.expires_at.isnot(None),
-        Event.expires_at < today_start,
-    ).all()
-    for event in expired:
-        db.query(Attendance).filter(Attendance.event_id == event.id).delete()
-        db.delete(event)
-    if expired:
-        db.commit()
+    try:
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        expired = db.query(Event).filter(
+            Event.expires_at.isnot(None),
+            Event.expires_at < today_start,
+        ).all()
+        for event in expired:
+            db.query(Attendance).filter(Attendance.event_id == event.id).delete()
+            db.delete(event)
+        if expired:
+            db.commit()
+    except Exception:
+        db.rollback()
 
 
 @router.get("")
