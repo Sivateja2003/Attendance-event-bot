@@ -151,21 +151,22 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
                     db.rollback()
                     already_attended = True
 
-        ws_manager.broadcast({
-            "type": "match",
-            "user": {
-                "name": row.name,
-                "email": row.email,
-                "phone": row.phone,
-                "linkedin": row.linkedin,
-                "occupation": row.occupation,
-                "image_url": row.image_url,
-                "already_attended": already_attended,
-                "role": row.role,
-            },
-            "event_name": event_name,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        if not already_attended:
+            ws_manager.broadcast({
+                "type": "match",
+                "user": {
+                    "name": row.name,
+                    "email": row.email,
+                    "phone": row.phone,
+                    "linkedin": row.linkedin,
+                    "occupation": row.occupation,
+                    "image_url": row.image_url,
+                    "already_attended": False,
+                    "role": row.role,
+                },
+                "event_name": event_name,
+                "timestamp": datetime.utcnow().isoformat(),
+            })
 
         return {
             "status": "matched",
