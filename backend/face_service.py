@@ -108,7 +108,25 @@ def get_embedding(image_path: str) -> list | None:
 
 
 def get_embedding_from_array(img_array: np.ndarray) -> list | None:
-    return _compute_embedding(img_array)
+    if img_array is None:
+        return None
+    img = _resize_max(img_array, 640)
+    # Apply the same Haar-cascade crop used during registration so embeddings
+    # are computed on identically-framed face regions in both paths.
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    faces = _face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(30, 30))
+    if len(faces) > 0:
+        x, y, w, h = faces[0]
+        pad_x = int(w * 0.2)
+        pad_y = int(h * 0.2)
+        x1 = max(0, x - pad_x)
+        y1 = max(0, y - pad_y)
+        x2 = min(img.shape[1], x + w + pad_x)
+        y2 = min(img.shape[0], y + h + pad_y)
+        img = img[y1:y2, x1:x2]
+    else:
+        print("[face_service] Haar cascade found no face in detect crop; using full crop")
+    return _compute_embedding(img)
 
 
 def is_live_face(img_array: np.ndarray) -> bool:

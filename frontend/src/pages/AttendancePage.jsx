@@ -16,7 +16,7 @@ function getTimeGreeting() {
 const DETECT_EVERY_MS = 250
 const RESULT_DISPLAY_MS = 5000
 const NO_FACE_COOLDOWN_MS = 2000
-const MIN_FACE_RATIO = 0.10   // lowered: face only needs to be 10% of frame width
+const MIN_FACE_RATIO = 0.18   // face must be at least 18% of frame width for clean embedding
 
 function getFemalVoice() {
   const voices = window.speechSynthesis.getVoices()

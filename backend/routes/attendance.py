@@ -57,7 +57,6 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
         if not is_live_face(img_array):
             return {"status": "spoof_detected"}
 
-        # Image is already a cropped face from the frontend, so skip detector
         embedding = get_embedding_from_array(img_array)
         if embedding is None:
             print("[detect] DeepFace could not extract embedding")
