@@ -26,3 +26,6 @@ bcrypt==4.0.1
 python-dotenv==1.0.1
 Pillow>=11.0.0
 requests==2.32.3
+
+# Notifications
+twilio>=8.0.0
