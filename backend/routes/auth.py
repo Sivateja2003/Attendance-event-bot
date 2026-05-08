@@ -126,10 +126,15 @@ async def signup(
         base_url = os.getenv("APP_BASE_URL", "http://localhost:5173").rstrip("/")
         display_url = f"{base_url}/display/{event_id}"
 
-        # Use the event creator's email settings; fall back to .env globals
+        # Use the event creator's email settings; fall back to any configured admin
         admin_cfg = None
         if event.created_by:
             admin_cfg = db.query(AdminSettings).filter(AdminSettings.user_id == event.created_by).first()
+        if not admin_cfg:
+            admin_cfg = db.query(AdminSettings).filter(
+                AdminSettings.email_user.isnot(None),
+                AdminSettings.email_password.isnot(None),
+            ).first()
 
         background_tasks.add_task(
             send_registration_email,
