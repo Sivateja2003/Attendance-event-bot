@@ -2170,6 +2170,159 @@ html, body, #root {
 }
 .ev-url-btn:hover { border-color: var(--accent); background: rgba(108,99,255,0.08); }
 
+/* ── Settings Page ───────────────────────────────────────────── */
+.stg-page {
+  min-height: calc(100vh - 56px);
+  background: var(--bg);
+  padding: 36px 32px;
+}
+.stg-container {
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.stg-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.stg-title { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+.stg-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+.stg-status {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.stg-status--ok {
+  background: rgba(0,212,170,0.1);
+  border: 1px solid rgba(0,212,170,0.3);
+  color: var(--accent-green);
+}
+.stg-status--warn {
+  background: rgba(245,158,11,0.1);
+  border: 1px solid rgba(245,158,11,0.3);
+  color: #f59e0b;
+}
+
+.stg-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.stg-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.stg-card-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.stg-card-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.stg-card-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+.stg-form {
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.stg-field { display: flex; flex-direction: column; gap: 7px; }
+.stg-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.stg-label-hint { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--accent); }
+.stg-optional { font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+.stg-input {
+  padding: 11px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+.stg-input:focus { border-color: var(--accent); }
+.stg-input::placeholder { color: var(--muted); opacity: 0.5; }
+
+.stg-password-row {
+  display: flex;
+  gap: 8px;
+}
+.stg-password-row .stg-input { flex: 1; }
+.stg-eye-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 14px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  flex-shrink: 0;
+}
+.stg-eye-btn:hover { border-color: var(--accent); }
+
+.stg-hint { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+.stg-msg {
+  padding: 11px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.stg-msg.success { background: rgba(0,212,170,0.1); border: 1px solid rgba(0,212,170,0.3); color: var(--accent-green); }
+.stg-msg.error   { background: rgba(255,68,85,0.1);  border: 1px solid rgba(255,68,85,0.3);  color: var(--accent-red); }
+
+.stg-save-btn {
+  padding: 13px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.stg-save-btn:hover:not(:disabled) { opacity: 0.88; }
+.stg-save-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.stg-test-row { display: flex; gap: 10px; }
+.stg-test-row .stg-input { flex: 1; }
+.stg-test-btn {
+  padding: 11px 20px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.stg-test-btn:hover:not(:disabled) { border-color: var(--accent); background: rgba(108,99,255,0.08); }
+.stg-test-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* ── Mini Calendar ───────────────────────────────────────────── */
 .cal-wrap {
   background: var(--surface);

@@ -7,6 +7,7 @@ import LobbyPage from './pages/LobbyPage'
 import LoginPage from './pages/LoginPage'
 import EventRegisterPage from './pages/EventRegisterPage'
 import EventsPage from './pages/EventsPage'
+import SettingsPage from './pages/SettingsPage'
 import SignupPage from './pages/SignupPage'
 import { AuthProvider, RequireAuth, useAuth } from './auth'
 
@@ -50,6 +51,9 @@ function Nav() {
             <NavLink to="/users" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               Users
             </NavLink>
+            <NavLink to="/settings" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+              Settings
+            </NavLink>
           </>
         )}
 
@@ -82,6 +86,7 @@ export default function App() {
           <Route path="/spotregister" element={<RequireAuth role="admin"><RegisterPage /></RequireAuth>} />
           <Route path="/lobby" element={<RequireAuth role="admin"><LobbyPage /></RequireAuth>} />
           <Route path="/users" element={<RequireAuth role="admin"><UsersPage /></RequireAuth>} />
+          <Route path="/settings" element={<RequireAuth role="admin"><SettingsPage /></RequireAuth>} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

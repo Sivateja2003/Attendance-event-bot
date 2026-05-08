@@ -80,8 +80,8 @@ def list_events(db: Session = Depends(get_db)):
     ]
 
 
-@router.post("", dependencies=[Depends(require_admin)])
-def create_event(body: EventCreate, db: Session = Depends(get_db)):
+@router.post("")
+def create_event(body: EventCreate, db: Session = Depends(get_db), current_user=Depends(require_admin)):
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Event name is required.")
@@ -95,7 +95,7 @@ def create_event(body: EventCreate, db: Session = Depends(get_db)):
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid expires_at date.")
 
-    event = Event(name=name, description=body.description, expires_at=expires_at)
+    event = Event(name=name, description=body.description, expires_at=expires_at, created_by=current_user.id)
     db.add(event)
     db.commit()
     db.refresh(event)

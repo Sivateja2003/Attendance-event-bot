@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy import text, inspect
 from database import engine, Base
-from routes import register, attendance, events, import_sheet, auth as auth_routes
+from routes import register, attendance, events, import_sheet, auth as auth_routes, settings as settings_routes
 import ws_manager
 import os
 
@@ -52,6 +52,9 @@ def run_migrations():
         if "expires_at" not in event_cols:
             # TIMESTAMP works in both PostgreSQL and SQLite (DATETIME is SQLite-only)
             conn.execute(text("ALTER TABLE events ADD COLUMN expires_at TIMESTAMP"))
+
+        if "created_by" not in event_cols:
+            conn.execute(text("ALTER TABLE events ADD COLUMN created_by INTEGER REFERENCES users(id)"))
 
         rows = conn.execute(
             text("SELECT id, embedding FROM users WHERE embedding IS NOT NULL")
@@ -124,6 +127,7 @@ app.include_router(register.router)
 app.include_router(attendance.router)
 app.include_router(events.router)
 app.include_router(import_sheet.router)
+app.include_router(settings_routes.router)
 
 
 @app.websocket("/ws/display")

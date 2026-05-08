@@ -10,7 +10,7 @@ from typing import Optional
 from auth import create_access_token, get_current_user, hash_password, verify_password
 from database import get_db
 from face_service import UPLOAD_DIR, get_embedding, save_base64_image, save_upload_bytes
-from models import Attendance, Event, User
+from models import Attendance, AdminSettings, Event, User
 from notifications import send_registration_email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -125,8 +125,18 @@ async def signup(
 
         base_url = os.getenv("APP_BASE_URL", "http://localhost:5173").rstrip("/")
         display_url = f"{base_url}/display/{event_id}"
+
+        # Use the event creator's email settings; fall back to .env globals
+        admin_cfg = None
+        if event.created_by:
+            admin_cfg = db.query(AdminSettings).filter(AdminSettings.user_id == event.created_by).first()
+
         background_tasks.add_task(
-            send_registration_email, user.email, user.name, event_name, display_url
+            send_registration_email,
+            user.email, user.name, event_name, display_url,
+            admin_cfg.email_user if admin_cfg else None,
+            admin_cfg.email_password if admin_cfg else None,
+            admin_cfg.email_from if admin_cfg else None,
         )
 
     if password:

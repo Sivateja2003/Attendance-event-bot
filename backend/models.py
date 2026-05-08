@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, LargeBinary
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, LargeBinary, Boolean
 from datetime import datetime
 from database import Base
 
@@ -19,6 +19,17 @@ class User(Base):
     role = Column(String(20), nullable=False, default="user")
 
 
+class AdminSettings(Base):
+    __tablename__ = "admin_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    email_user = Column(String(255), nullable=True)
+    email_password = Column(String(255), nullable=True)
+    email_from = Column(String(255), nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Event(Base):
     __tablename__ = "events"
 
@@ -27,6 +38,7 @@ class Event(Base):
     description = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 
 
 class Attendance(Base):

@@ -4,18 +4,21 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 
-def _email_cfg():
-    return (
-        os.getenv("EMAIL_HOST"),
-        int(os.getenv("EMAIL_PORT", "587")),
-        os.getenv("EMAIL_USER"),
-        os.getenv("EMAIL_PASSWORD"),
-        os.getenv("EMAIL_FROM") or os.getenv("EMAIL_USER"),
-    )
+def send_registration_email(
+    to_email: str,
+    name: str,
+    event_name: str,
+    display_url: str,
+    email_user: str = None,
+    email_password: str = None,
+    email_from: str = None,
+):
+    host = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+    port = int(os.getenv("EMAIL_PORT", "587"))
+    user = email_user or os.getenv("EMAIL_USER")
+    password = email_password or os.getenv("EMAIL_PASSWORD")
+    from_addr = email_from or os.getenv("EMAIL_FROM") or user
 
-
-def send_registration_email(to_email: str, name: str, event_name: str, display_url: str):
-    host, port, user, password, from_addr = _email_cfg()
     if not all([host, user, password, to_email]):
         return
 
