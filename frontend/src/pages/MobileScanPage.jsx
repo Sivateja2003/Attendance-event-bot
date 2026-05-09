@@ -10,6 +10,12 @@ const DETECT_EVERY_MS = 300
 const RESULT_DISPLAY_MS = 5000
 const MIN_FACE_RATIO = 0.18
 
+// Prime voice list — mobile browsers load voices asynchronously
+if (typeof window !== 'undefined' && window.speechSynthesis) {
+  window.speechSynthesis.getVoices()
+  window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices()
+}
+
 function getFemaleVoice() {
   const voices = window.speechSynthesis.getVoices()
   const preferred = [
@@ -31,21 +37,35 @@ function getFemaleVoice() {
   )
 }
 
-// Mobile browsers load voices asynchronously — prime the list on first opportunity
-if (typeof window !== 'undefined' && window.speechSynthesis) {
-  window.speechSynthesis.getVoices()
-  window.speechSynthesis.addEventListener?.('voiceschanged', () => window.speechSynthesis.getVoices())
+// Unlock AudioContext (iOS requires this to happen inside a user-gesture handler)
+function unlockAudioContext() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+    const buf = ctx.createBuffer(1, 1, 22050)
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    src.connect(ctx.destination)
+    src.start(0)
+    ctx.resume?.()
+  } catch (_) {}
 }
 
 function speak(text) {
-  window.speechSynthesis.cancel()
-  const u = new SpeechSynthesisUtterance(text)
-  const voice = getFemaleVoice()
-  if (voice) u.voice = voice
-  u.pitch = 1.2
-  u.rate = 0.92
-  u.volume = 1.0
-  window.speechSynthesis.speak(u)
+  try {
+    window.speechSynthesis.cancel()
+    // iOS needs a tiny delay after cancel() before a new utterance works
+    setTimeout(() => {
+      const u = new SpeechSynthesisUtterance(text)
+      const voice = getFemaleVoice()
+      if (voice) u.voice = voice
+      u.pitch = 1.2
+      u.rate = 0.92
+      u.volume = 1.0
+      window.speechSynthesis.speak(u)
+    }, 50)
+  } catch (_) {}
 }
 
 export default function MobileScanPage() {
@@ -55,6 +75,7 @@ export default function MobileScanPage() {
   const activeRef = useRef(false)
   const stateRef = useRef('idle')
   const recognitionRef = useRef(null)
+  const keepaliveRef = useRef(null)
 
   const [uiState, setUiState] = useState('idle')
   const [result, setResult] = useState(null)
@@ -62,13 +83,13 @@ export default function MobileScanPage() {
   const [modelError, setModelError] = useState(false)
   const [event, setEvent] = useState(null)
   const [eventError, setEventError] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(true)
 
   function setState(s) {
     stateRef.current = s
     setUiState(s)
   }
 
-  // Load event info and face detection models in parallel
   useEffect(() => {
     apiFetch(`/api/events/${eventId}/info`)
       .then(r => r.ok ? r.json() : Promise.reject())
@@ -83,8 +104,28 @@ export default function MobileScanPage() {
     return () => {
       activeRef.current = false
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      if (keepaliveRef.current) clearInterval(keepaliveRef.current)
     }
   }, [eventId])
+
+  // iOS Safari stops speech synthesis after ~30s of inactivity.
+  // Keep it alive by pausing/resuming every 10s while scanning.
+  function startKeepalive() {
+    if (keepaliveRef.current) clearInterval(keepaliveRef.current)
+    keepaliveRef.current = setInterval(() => {
+      if (!window.speechSynthesis.speaking) {
+        window.speechSynthesis.pause()
+        window.speechSynthesis.resume()
+      }
+    }, 10000)
+  }
+
+  function stopKeepalive() {
+    if (keepaliveRef.current) {
+      clearInterval(keepaliveRef.current)
+      keepaliveRef.current = null
+    }
+  }
 
   const startLoop = useCallback(() => {
     let lastRun = 0
@@ -101,8 +142,9 @@ export default function MobileScanPage() {
             )
             if (stateRef.current !== 'watching') return
             if (hits.length > 1) {
-              setResult({ status: 'multi_face', message: 'Multiple faces detected. Please step up one at a time.' })
+              setResult({ type: 'multi_face', message: 'Multiple faces. Please step up one at a time.' })
               setState('result')
+              speak('Multiple faces detected. Please step up one at a time.')
               setTimeout(resetToWatching, 2500)
               return
             }
@@ -199,10 +241,22 @@ export default function MobileScanPage() {
   }
 
   function handleStart() {
-    speak(' ') // unlock audio context on mobile with user gesture
+    // Both steps must happen synchronously inside this user-gesture handler
+    // so iOS considers them authorized
+    unlockAudioContext()
+    speak('Sound enabled. Starting face check-in.')
+    setSoundEnabled(true)
     activeRef.current = true
     setState('watching')
+    startKeepalive()
     startLoop()
+  }
+
+  // Let user re-enable sound mid-session if iOS re-blocked it
+  function handleReenableSound() {
+    unlockAudioContext()
+    speak('Sound re-enabled.')
+    setSoundEnabled(true)
   }
 
   if (eventError) {
@@ -219,13 +273,11 @@ export default function MobileScanPage() {
 
   return (
     <div className="mscan-page">
-      {/* Event header */}
       <div className="mscan-header">
         <div className="mscan-brand">FaceAttend</div>
         {event && <div className="mscan-event-name">{event.name}</div>}
       </div>
 
-      {/* Camera area */}
       <div className="mscan-camera-wrap">
         <Webcam
           ref={webcamRef}
@@ -236,7 +288,6 @@ export default function MobileScanPage() {
           className="mscan-webcam"
         />
 
-        {/* Face frame */}
         {(uiState === 'watching' || uiState === 'identifying') && (
           <div className="mscan-face-frame">
             <div className="mscan-corner mscan-tl" />
@@ -246,7 +297,6 @@ export default function MobileScanPage() {
           </div>
         )}
 
-        {/* Status indicator */}
         {(uiState === 'watching' || uiState === 'identifying') && (
           <div className={`mscan-status ${uiState}`}>
             <span className="mscan-dot" />
@@ -254,7 +304,13 @@ export default function MobileScanPage() {
           </div>
         )}
 
-        {/* Result overlay */}
+        {/* Sound re-enable button — visible while scanning, in case iOS re-blocks audio */}
+        {(uiState === 'watching' || uiState === 'identifying') && (
+          <button className="mscan-sound-btn" onClick={handleReenableSound} title="Tap if you can't hear announcements">
+            🔊
+          </button>
+        )}
+
         {uiState === 'result' && result && (
           <div className={`mscan-result-overlay mscan-result--${result.type}`}>
             {result.type === 'success' && (
@@ -278,7 +334,7 @@ export default function MobileScanPage() {
                 <div className="mscan-result-msg">{result.message}</div>
               </div>
             )}
-            {(result.type === 'unknown' || result.type === 'error') && (
+            {(result.type === 'unknown' || result.type === 'error' || result.type === 'multi_face') && (
               <div className="mscan-result-card">
                 <div className="mscan-result-icon-big mscan-icon--err">✕</div>
                 <div className="mscan-result-msg">{result.message}</div>
@@ -293,8 +349,7 @@ export default function MobileScanPage() {
           </div>
         )}
 
-        {/* Start overlay */}
-        {(uiState === 'idle') && (
+        {uiState === 'idle' && (
           <div className="mscan-start-overlay">
             <div className="mscan-start-card">
               {modelError ? (
@@ -317,6 +372,7 @@ export default function MobileScanPage() {
                   >
                     {modelsReady && event ? 'Start Check-In' : 'Please wait...'}
                   </button>
+                  <div className="mscan-start-sound-note">🔊 Voice announcements will be enabled</div>
                 </>
               )}
             </div>
