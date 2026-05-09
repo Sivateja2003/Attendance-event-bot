@@ -10,6 +10,44 @@ const DETECT_EVERY_MS = 300
 const RESULT_DISPLAY_MS = 5000
 const MIN_FACE_RATIO = 0.18
 
+function getFemaleVoice() {
+  const voices = window.speechSynthesis.getVoices()
+  const preferred = [
+    'Microsoft Aria Online (Natural) - English (United States)',
+    'Microsoft Jenny Online (Natural) - English (United States)',
+    'Microsoft Eva - English (United States)',
+    'Microsoft Zira - English (United States)',
+    'Google US English',
+  ]
+  for (const name of preferred) {
+    const v = voices.find(v => v.name === name)
+    if (v) return v
+  }
+  return (
+    voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('female')) ||
+    voices.find(v => v.lang.startsWith('en') && /zira|eva|aria|jenny|hazel|susan|karen|samantha|victoria|fiona/i.test(v.name)) ||
+    voices.find(v => v.lang.startsWith('en')) ||
+    null
+  )
+}
+
+// Mobile browsers load voices asynchronously — prime the list on first opportunity
+if (typeof window !== 'undefined' && window.speechSynthesis) {
+  window.speechSynthesis.getVoices()
+  window.speechSynthesis.addEventListener?.('voiceschanged', () => window.speechSynthesis.getVoices())
+}
+
+function speak(text) {
+  window.speechSynthesis.cancel()
+  const u = new SpeechSynthesisUtterance(text)
+  const voice = getFemaleVoice()
+  if (voice) u.voice = voice
+  u.pitch = 1.2
+  u.rate = 0.92
+  u.volume = 1.0
+  window.speechSynthesis.speak(u)
+}
+
 export default function MobileScanPage() {
   const { eventId } = useParams()
   const webcamRef = useRef(null)
@@ -104,31 +142,40 @@ export default function MobileScanPage() {
 
       if (data.status === 'matched') {
         const msg = data.user.already_attended
-          ? `Already checked in — ${data.user.name}`
-          : `Welcome, ${data.user.name}!`
+          ? `Welcome back, ${data.user.name}! You are already checked in.`
+          : `Welcome, ${data.user.name}! You have been checked in successfully.`
         setResult({ type: 'success', already: data.user.already_attended, user: data.user, message: msg })
         setState('result')
+        speak(msg)
         setTimeout(resetToWatching, RESULT_DISPLAY_MS)
 
       } else if (data.status === 'not_registered_for_event') {
         const name = data.user?.name || 'You'
-        setResult({ type: 'not_enrolled', name, message: `${name} is not registered for this event.` })
+        const msg = `${name} is not registered for this event. Please go to the registration desk.`
+        setResult({ type: 'not_enrolled', name, message: msg })
         setState('result')
+        speak(msg)
         setTimeout(resetToWatching, RESULT_DISPLAY_MS)
 
       } else if (data.status === 'not_registered') {
-        setResult({ type: 'unknown', message: 'Face not recognised. Please register first.' })
+        const msg = 'Face not recognised. Please register first.'
+        setResult({ type: 'unknown', message: msg })
         setState('result')
+        speak(msg)
         setTimeout(resetToWatching, RESULT_DISPLAY_MS)
 
       } else if (data.status === 'low_confidence') {
-        setResult({ type: 'warning', message: 'Face unclear. Look directly at the camera.' })
+        const msg = 'Face unclear. Please look directly at the camera.'
+        setResult({ type: 'warning', message: msg })
         setState('result')
+        speak(msg)
         setTimeout(resetToWatching, 2500)
 
       } else if (data.status === 'spoof_detected') {
-        setResult({ type: 'error', message: 'Liveness check failed. Use your real face.' })
+        const msg = 'Liveness check failed. Please use your real face.'
+        setResult({ type: 'error', message: msg })
         setState('result')
+        speak(msg)
         setTimeout(resetToWatching, 3000)
 
       } else {
@@ -152,6 +199,7 @@ export default function MobileScanPage() {
   }
 
   function handleStart() {
+    speak(' ') // unlock audio context on mobile with user gesture
     activeRef.current = true
     setState('watching')
     startLoop()
