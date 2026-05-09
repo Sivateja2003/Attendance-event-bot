@@ -1,9 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from pydantic import BaseModel
+from datetime import datetime, date as date_type
 from database import get_db
-from models import Event, Attendance
+from models import Event, Attendance, User
+from face_service import UPLOAD_DIR
 from auth import require_admin
+import os
 
 router = APIRouter(prefix="/api/events", tags=["events"])
 
@@ -11,10 +15,58 @@ router = APIRouter(prefix="/api/events", tags=["events"])
 class EventCreate(BaseModel):
     name: str
     description: str | None = None
+    expires_at: str | None = None  # YYYY-MM-DD
+
+
+def _delete_event_cascade(event_id: int, db: Session):
+    """Delete an event, its exclusive users (with photos), and all attendance records."""
+    only_here = db.execute(text("""
+        SELECT DISTINCT a.user_id FROM attendance a
+        WHERE a.event_id = :eid
+          AND a.user_id NOT IN (
+              SELECT DISTINCT user_id FROM attendance
+              WHERE (event_id != :eid OR event_id IS NULL)
+                AND event_id IS NOT NULL
+          )
+          AND a.user_id NOT IN (
+              SELECT DISTINCT user_id FROM attendance
+              WHERE event_id IS NULL
+          )
+    """), {"eid": event_id}).fetchall()
+
+    for row in only_here:
+        user = db.query(User).filter(User.id == row.user_id, User.role != "admin").first()
+        if user:
+            if user.image_url:
+                filepath = os.path.join(UPLOAD_DIR, os.path.basename(user.image_url))
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+            db.delete(user)
+
+    db.query(Attendance).filter(Attendance.event_id == event_id).delete()
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if event:
+        db.delete(event)
+
+
+def _purge_expired(db: Session):
+    try:
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        expired = db.query(Event).filter(
+            Event.expires_at.isnot(None),
+            Event.expires_at < today_start,
+        ).all()
+        for event in expired:
+            _delete_event_cascade(event.id, db)
+        if expired:
+            db.commit()
+    except Exception:
+        db.rollback()
 
 
 @router.get("")
 def list_events(db: Session = Depends(get_db)):
+    _purge_expired(db)
     events = db.query(Event).order_by(Event.created_at.desc()).all()
     return [
         {
@@ -22,21 +74,59 @@ def list_events(db: Session = Depends(get_db)):
             "name": e.name,
             "description": e.description,
             "created_at": e.created_at,
+            "expires_at": e.expires_at,
         }
         for e in events
     ]
 
 
-@router.post("", dependencies=[Depends(require_admin)])
-def create_event(body: EventCreate, db: Session = Depends(get_db)):
+@router.post("")
+def create_event(body: EventCreate, db: Session = Depends(get_db), current_user=Depends(require_admin)):
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Event name is required.")
-    event = Event(name=name, description=body.description)
+
+    expires_at = None
+    if body.expires_at:
+        try:
+            d = date_type.fromisoformat(body.expires_at)
+            # Store as midnight of that date; cleanup removes events where expires_at < today midnight
+            expires_at = datetime(d.year, d.month, d.day, 0, 0, 0)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid expires_at date.")
+
+    event = Event(name=name, description=body.description, expires_at=expires_at, created_by=current_user.id)
     db.add(event)
     db.commit()
     db.refresh(event)
-    return {"id": event.id, "name": event.name, "description": event.description, "created_at": event.created_at}
+    return {
+        "id": event.id,
+        "name": event.name,
+        "description": event.description,
+        "created_at": event.created_at,
+        "expires_at": event.expires_at,
+    }
+
+
+@router.get("/{event_id}/users", dependencies=[Depends(require_admin)])
+def event_users(event_id: int, db: Session = Depends(get_db)):
+    rows = db.execute(text("""
+        SELECT u.id, u.name, u.email, u.phone, u.linkedin, u.occupation,
+               u.image_url, u.registered_at, a.status
+        FROM attendance a
+        JOIN users u ON u.id = a.user_id
+        WHERE a.event_id = :eid AND u.role != 'admin'
+        ORDER BY u.name
+    """), {"eid": event_id}).fetchall()
+    return [
+        {
+            "id": r.id, "name": r.name, "email": r.email, "phone": r.phone,
+            "linkedin": r.linkedin, "occupation": r.occupation,
+            "image_url": r.image_url, "registered_at": r.registered_at,
+            "status": r.status,
+        }
+        for r in rows
+    ]
 
 
 @router.delete("/{event_id}", dependencies=[Depends(require_admin)])
@@ -44,7 +134,6 @@ def delete_event(event_id: int, db: Session = Depends(get_db)):
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found.")
-    deleted = db.query(Attendance).filter(Attendance.event_id == event_id).delete()
-    db.delete(event)
+    _delete_event_cascade(event_id, db)
     db.commit()
-    return {"success": True, "attendance_deleted": deleted}
+    return {"success": True}

@@ -1,3 +1,6 @@
+# CPU-only torch index (avoids downloading 800MB CUDA build)
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 # Web framework
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
@@ -6,13 +9,11 @@ gunicorn
 
 # Database
 sqlalchemy==2.0.36
-psycopg2-binary==2.9.10
+psycopg[binary]
 
 # Face recognition / ML
-deepface==0.0.93
-tensorflow-cpu
-tf-keras
-opencv-python==4.11.0.86
+facenet-pytorch
+opencv-python-headless==4.11.0.86
 numpy
 torch
 torchvision
@@ -23,8 +24,6 @@ bcrypt==4.0.1
 
 # Utilities
 python-dotenv==1.0.1
-Pillow==10.4.0
+Pillow>=11.0.0
 requests==2.32.3
 
-# Dev / load testing
-xlocust==2.32.3

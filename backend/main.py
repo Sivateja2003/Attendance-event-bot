@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy import text, inspect
 from database import engine, Base
-from routes import register, attendance, events, import_sheet, auth as auth_routes, me as me_routes
+from routes import register, attendance, events, import_sheet, auth as auth_routes, settings as settings_routes
 import ws_manager
 import os
 
@@ -18,6 +18,7 @@ def run_migrations():
 
     user_cols = {c["name"] for c in insp.get_columns("users")}
     att_cols = {c["name"] for c in insp.get_columns("attendance")}
+    event_cols = {c["name"] for c in insp.get_columns("events")}
 
     with engine.begin() as conn:
         for col, ddl in [
@@ -47,6 +48,13 @@ def run_migrations():
         ]:
             if col not in user_cols:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {ddl}"))
+
+        if "expires_at" not in event_cols:
+            # TIMESTAMP works in both PostgreSQL and SQLite (DATETIME is SQLite-only)
+            conn.execute(text("ALTER TABLE events ADD COLUMN expires_at TIMESTAMP"))
+
+        if "created_by" not in event_cols:
+            conn.execute(text("ALTER TABLE events ADD COLUMN created_by INTEGER REFERENCES users(id)"))
 
         rows = conn.execute(
             text("SELECT id, embedding FROM users WHERE embedding IS NOT NULL")
@@ -115,11 +123,11 @@ os.makedirs(upload_dir, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=upload_dir), name="uploads")
 
 app.include_router(auth_routes.router)
-app.include_router(me_routes.router)
 app.include_router(register.router)
 app.include_router(attendance.router)
 app.include_router(events.router)
 app.include_router(import_sheet.router)
+app.include_router(settings_routes.router)
 
 
 @app.websocket("/ws/display")

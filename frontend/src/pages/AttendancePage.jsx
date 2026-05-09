@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react'
 import Webcam from 'react-webcam'
 import * as faceapi from '@vladmandic/face-api'
 import { apiFetch } from '../config'
+import UserAvatar from '../components/UserAvatar'
 
 const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model'
 
@@ -15,7 +16,7 @@ function getTimeGreeting() {
 const DETECT_EVERY_MS = 250
 const RESULT_DISPLAY_MS = 5000
 const NO_FACE_COOLDOWN_MS = 2000
-const MIN_FACE_RATIO = 0.10   // lowered: face only needs to be 10% of frame width
+const MIN_FACE_RATIO = 0.18   // face must be at least 18% of frame width for clean embedding
 
 function getFemalVoice() {
   const voices = window.speechSynthesis.getVoices()
@@ -64,9 +65,6 @@ export default function AttendancePage() {
   // Event state
   const [events, setEvents] = useState([])
   const [selectedEvent, setSelectedEvent] = useState(null)
-  const [newEventName, setNewEventName] = useState('')
-  const [showNewEventInput, setShowNewEventInput] = useState(false)
-  const [eventLoading, setEventLoading] = useState(false)
 
   function setState(s) {
     stateRef.current = s
@@ -88,34 +86,6 @@ export default function AttendancePage() {
     } catch {
       // ignore
     }
-  }
-
-  async function handleCreateEvent() {
-    const name = newEventName.trim()
-    if (!name) return
-    setEventLoading(true)
-    try {
-      const res = await apiFetch('/api/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      })
-      const event = await res.json()
-      setEvents(prev => [event, ...prev])
-      setSelectedEvent(event)
-      setNewEventName('')
-      setShowNewEventInput(false)
-    } finally {
-      setEventLoading(false)
-    }
-  }
-
-  async function handleDeleteEvent(e, event) {
-    e.stopPropagation()
-    if (!window.confirm(`Delete event "${event.name}"? This cannot be undone.`)) return
-    await apiFetch(`/api/events/${event.id}`, { method: 'DELETE' })
-    setEvents(prev => prev.filter(ev => ev.id !== event.id))
-    if (selectedEvent?.id === event.id) setSelectedEvent(null)
   }
 
   function handleStartScanning() {
@@ -300,9 +270,7 @@ export default function AttendancePage() {
           <div className={`result-overlay ${result.status}`}>
             {result.status === 'matched' && (
               <div className="result-card matched">
-                {result.user?.image_url && (
-                  <img src={result.user.image_url} alt={result.user.name} className="result-photo" />
-                )}
+                <UserAvatar src={result.user?.image_url} name={result.user?.name} imgClass="result-photo" fallbackClass="result-photo-placeholder" />
                 <div className="result-text">
                   <div className="result-icon">✓</div>
                   <div className="result-name">{result.user?.name}</div>
@@ -377,40 +345,22 @@ export default function AttendancePage() {
           <div className="activate-overlay">
             <div className="activate-card event-select-card">
               <h2>Select Event</h2>
-              <p>Choose an existing event or create a new one to begin scanning.</p>
+              <p>Choose an event to begin scanning. Manage events in the <strong>Events</strong> section.</p>
 
-              {events.length > 0 && (
+              {events.length === 0 ? (
+                <p className="event-select-empty">No events found. Create one in the Events page.</p>
+              ) : (
                 <div className="event-list">
                   {events.map(e => (
-                    <div key={e.id} className={`event-option ${selectedEvent?.id === e.id ? 'selected' : ''}`} onClick={() => setSelectedEvent(e)}>
+                    <div
+                      key={e.id}
+                      className={`event-option ${selectedEvent?.id === e.id ? 'selected' : ''}`}
+                      onClick={() => setSelectedEvent(e)}
+                    >
                       <span className="event-option-name">{e.name}</span>
-                      <button className="event-delete-btn" onClick={ev => handleDeleteEvent(ev, e)} title="Delete event">✕</button>
+                      {selectedEvent?.id === e.id && <span className="event-option-check">✓</span>}
                     </div>
                   ))}
-                </div>
-              )}
-
-              {!showNewEventInput ? (
-                <button className="btn-secondary" onClick={() => setShowNewEventInput(true)}>
-                  + New Event
-                </button>
-              ) : (
-                <div className="new-event-row">
-                  <input
-                    className="event-input"
-                    placeholder="Event name"
-                    value={newEventName}
-                    onChange={e => setNewEventName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleCreateEvent()}
-                    autoFocus
-                  />
-                  <button
-                    className="btn-activate"
-                    onClick={handleCreateEvent}
-                    disabled={eventLoading || !newEventName.trim()}
-                  >
-                    {eventLoading ? '...' : 'Create'}
-                  </button>
                 </div>
               )}
 

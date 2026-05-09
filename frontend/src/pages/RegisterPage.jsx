@@ -67,7 +67,9 @@ export default function RegisterPage() {
     setStatus(null)
 
     const fd = new FormData()
-    Object.entries(form).forEach(([k, v]) => fd.append(k, v.trim()))
+    Object.entries(form).forEach(([k, v]) => {
+      fd.append(k, v.trim())
+    })
     if (selectedEvent) fd.append('event_id', selectedEvent)
     if (uploadFile) fd.append('image', uploadFile)
     else fd.append('image_base64', captured)

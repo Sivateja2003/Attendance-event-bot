@@ -1,18 +1,20 @@
 import asyncio
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
-from models import User, Attendance, Event
+from models import User, Attendance, AdminSettings, Event
 from face_service import get_embedding, save_upload_bytes, save_base64_image, UPLOAD_DIR
 from auth import require_admin
+from notifications import send_registration_email
 import numpy as np
 import os
 
 router = APIRouter(prefix="/api/register", tags=["register"])
 
 
-@router.post("", dependencies=[Depends(require_admin)])
+@router.post("")
 async def register_user(
+    background_tasks: BackgroundTasks,
     name: str = Form(...),
     email: str = Form(None),
     phone: str = Form(None),
@@ -22,6 +24,7 @@ async def register_user(
     image: UploadFile = File(None),
     image_base64: str = Form(None),
     db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
 ):
     if not image and not image_base64:
         raise HTTPException(status_code=400, detail="Provide either image file or base64 image.")
@@ -65,6 +68,18 @@ async def register_user(
     if event_id is not None:
         db.add(Attendance(user_id=user.id, event_id=event_id, status="enrolled"))
         db.commit()
+
+        if user.email:
+            admin_cfg = db.query(AdminSettings).filter(AdminSettings.user_id == current_user.id).first()
+            base_url = os.getenv("APP_BASE_URL", "http://localhost:5173").rstrip("/")
+            display_url = f"{base_url}/display/{event_id}"
+            background_tasks.add_task(
+                send_registration_email,
+                user.email, user.name, event_name, display_url,
+                admin_cfg.email_user if admin_cfg else None,
+                admin_cfg.email_password if admin_cfg else None,
+                admin_cfg.email_from if admin_cfg else None,
+            )
 
     return {
         "success": True,

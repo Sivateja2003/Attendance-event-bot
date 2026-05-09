@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { apiFetch, WS_BASE } from '../config'
+import UserAvatar from '../components/UserAvatar'
 
 export default function LobbyPage() {
   const [events, setEvents] = useState([])
@@ -88,9 +89,25 @@ export default function LobbyPage() {
             : (
               <div className="lb-picker-events">
                 {events.map(ev => (
-                  <button key={ev.id} className="lb-picker-btn" onClick={() => setSelectedEvent(ev)}>
-                    {ev.name}
-                  </button>
+                  <div key={ev.id} className="lb-picker-row">
+                    <button className="lb-picker-btn" onClick={() => setSelectedEvent(ev)}>
+                      {ev.name}
+                    </button>
+                    <button
+                      className="lb-picker-copy"
+                      title="Copy display URL"
+                      onClick={() => navigator.clipboard.writeText(`${window.location.origin}/display/${ev.id}`)}
+                    >
+                      Display URL
+                    </button>
+                    <button
+                      className="lb-picker-copy"
+                      title="Copy register URL"
+                      onClick={() => navigator.clipboard.writeText(`${window.location.origin}/register/${ev.id}`)}
+                    >
+                      Register URL
+                    </button>
+                  </div>
                 ))}
               </div>
             )
@@ -106,10 +123,7 @@ export default function LobbyPage() {
       {/* ── Toast notification ── */}
       {toast && (
         <div className="lb-toast" onClick={() => setToast(null)}>
-          {toast.image_url
-            ? <img src={toast.image_url} alt={toast.name} className="lb-toast-photo" />
-            : <div className="lb-toast-avatar">{toast.name?.[0]}</div>
-          }
+          <UserAvatar src={toast.image_url} name={toast.name} imgClass="lb-toast-photo" fallbackClass="lb-toast-avatar" />
           <div className="lb-toast-text">
             <span className="lb-toast-name">{toast.name}</span>
             <span className="lb-toast-msg">
@@ -126,10 +140,7 @@ export default function LobbyPage() {
           <div className="lb-modal" onClick={e => e.stopPropagation()}>
             <button className="lb-modal-close" onClick={() => setActiveProfile(null)}>✕</button>
             <div className="lb-modal-photo-wrap">
-              {activeProfile.image_url
-                ? <img src={activeProfile.image_url} alt={activeProfile.name} className="lb-modal-photo" />
-                : <div className="lb-modal-avatar">{activeProfile.name?.[0]}</div>
-              }
+              <UserAvatar src={activeProfile.image_url} name={activeProfile.name} imgClass="lb-modal-photo" fallbackClass="lb-modal-avatar" />
             </div>
             <div className="lb-modal-info">
               <h2 className="lb-modal-name">{activeProfile.name}</h2>
@@ -187,9 +198,23 @@ export default function LobbyPage() {
             {attendees.length} checked in
           </div>
         </div>
-        <button className="lb-change-event" onClick={() => { setSelectedEvent(null); setAttendees([]) }}>
-          Change Event
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            className="lb-change-event"
+            onClick={() => navigator.clipboard.writeText(`${window.location.origin}/display/${selectedEvent.id}`)}
+          >
+            Display URL
+          </button>
+          <button
+            className="lb-change-event"
+            onClick={() => navigator.clipboard.writeText(`${window.location.origin}/register/${selectedEvent.id}`)}
+          >
+            Register URL
+          </button>
+          <button className="lb-change-event" onClick={() => { setSelectedEvent(null); setAttendees([]) }}>
+            Change Event
+          </button>
+        </div>
       </div>
 
       {/* ── Search ── */}
@@ -230,10 +255,7 @@ export default function LobbyPage() {
               onClick={() => setActiveProfile(person)}
             >
               <div className="lb-card-photo-wrap">
-                {person.image_url
-                  ? <img src={person.image_url} alt={person.name} className="lb-card-photo" />
-                  : <div className="lb-card-avatar">{person.name?.[0]}</div>
-                }
+                <UserAvatar src={person.image_url} name={person.name} imgClass="lb-card-photo" fallbackClass="lb-card-avatar" />
                 <div className="lb-card-badge">✓</div>
               </div>
               <div className="lb-card-info">

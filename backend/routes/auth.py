@@ -3,14 +3,15 @@ import os
 
 import numpy as np
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile
 from sqlalchemy.orm import Session
 from typing import Optional
 
 from auth import create_access_token, get_current_user, hash_password, verify_password
 from database import get_db
 from face_service import UPLOAD_DIR, get_embedding, save_base64_image, save_upload_bytes
-from models import Attendance, Event, User
+from models import Attendance, AdminSettings, Event, User
+from notifications import send_registration_email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -62,9 +63,10 @@ def me(current_user: User = Depends(get_current_user)):
 @router.post("/signup")
 async def signup(
     response: Response,
+    background_tasks: BackgroundTasks,
     name: str = Form(...),
     email: str = Form(...),
-    password: str = Form(...),
+    password: str = Form(None),
     phone: str = Form(None),
     linkedin: str = Form(None),
     occupation: str = Form(None),
@@ -110,7 +112,7 @@ async def signup(
         occupation=occupation.strip() if occupation else None,
         image_url=image_url,
         embedding=np.array(embedding, dtype=np.float32).tobytes(),
-        password_hash=hash_password(password),
+        password_hash=hash_password(password) if password else None,
         role="user",
     )
     db.add(user)
@@ -121,4 +123,27 @@ async def signup(
         db.add(Attendance(user_id=user.id, event_id=event_id, status="enrolled"))
         db.commit()
 
-    return _set_auth_cookie(response, user)
+        base_url = os.getenv("APP_BASE_URL", "http://localhost:5173").rstrip("/")
+        display_url = f"{base_url}/display/{event_id}"
+
+        # Use the event creator's email settings; fall back to any configured admin
+        admin_cfg = None
+        if event.created_by:
+            admin_cfg = db.query(AdminSettings).filter(AdminSettings.user_id == event.created_by).first()
+        if not admin_cfg:
+            admin_cfg = db.query(AdminSettings).filter(
+                AdminSettings.email_user.isnot(None),
+                AdminSettings.email_password.isnot(None),
+            ).first()
+
+        background_tasks.add_task(
+            send_registration_email,
+            user.email, user.name, event_name, display_url,
+            admin_cfg.email_user if admin_cfg else None,
+            admin_cfg.email_password if admin_cfg else None,
+            admin_cfg.email_from if admin_cfg else None,
+        )
+
+    if password:
+        return _set_auth_cookie(response, user)
+    return {"id": user.id, "name": user.name, "email": user.email, "role": user.role}

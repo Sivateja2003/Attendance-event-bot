@@ -1,22 +1,38 @@
 import { useState, useEffect } from 'react'
 import { apiFetch } from '../config'
+import UserAvatar from '../components/UserAvatar'
 
 export default function UsersPage() {
-  const [users, setUsers] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [expanded, setExpanded] = useState(null)
-  const [deleting, setDeleting] = useState(null)
-  const [search, setSearch] = useState('')
+  const [allUsers, setAllUsers]   = useState([])
+  const [events, setEvents]       = useState([])
+  const [eventUsers, setEventUsers] = useState({})   // { [eventId]: [...] }
+  const [activeTab, setActiveTab] = useState('all')  // 'all' | eventId
+  const [loading, setLoading]     = useState(true)
+  const [expanded, setExpanded]   = useState(null)
+  const [deleting, setDeleting]   = useState(null)
+  const [search, setSearch]       = useState('')
 
-  useEffect(() => { fetchUsers() }, [])
+  useEffect(() => { fetchAll() }, [])
 
-  async function fetchUsers() {
+  async function fetchAll() {
     setLoading(true)
     try {
-      const res = await apiFetch('/api/register/users')
-      setUsers(await res.json())
+      const [usersRes, eventsRes] = await Promise.all([
+        apiFetch('/api/register/users'),
+        apiFetch('/api/events'),
+      ])
+      const [users, evs] = await Promise.all([usersRes.json(), eventsRes.json()])
+      setAllUsers(users)
+      setEvents(evs)
+
+      const perEvent = {}
+      await Promise.all(evs.map(async ev => {
+        const r = await apiFetch(`/api/events/${ev.id}/users`)
+        perEvent[ev.id] = await r.json()
+      }))
+      setEventUsers(perEvent)
     } catch {
-      setUsers([])
+      setAllUsers([])
     } finally {
       setLoading(false)
     }
@@ -27,10 +43,15 @@ export default function UsersPage() {
     setDeleting(user.id)
     try {
       await apiFetch(`/api/register/users/${user.id}`, { method: 'DELETE' })
-      setUsers(u => u.filter(x => x.id !== user.id))
+      setAllUsers(u => u.filter(x => x.id !== user.id))
+      setEventUsers(prev => {
+        const updated = { ...prev }
+        for (const eid in updated) updated[eid] = updated[eid].filter(x => x.id !== user.id)
+        return updated
+      })
       if (expanded === user.id) setExpanded(null)
     } catch {
-      alert('Failed to delete user. Make sure the backend is running.')
+      alert('Failed to delete user.')
     } finally {
       setDeleting(null)
     }
@@ -40,10 +61,16 @@ export default function UsersPage() {
     setExpanded(prev => prev === id ? null : id)
   }
 
-  const filtered = users.filter(u =>
+  const displayUsers = activeTab === 'all'
+    ? allUsers
+    : (eventUsers[activeTab] || [])
+
+  const filtered = displayUsers.filter(u =>
     [u.name, u.email, u.occupation, u.phone]
       .some(v => v?.toLowerCase().includes(search.toLowerCase()))
   )
+
+  const totalForTab = activeTab === 'all' ? allUsers.length : (eventUsers[activeTab]?.length ?? 0)
 
   return (
     <div className="ul-page">
@@ -54,13 +81,34 @@ export default function UsersPage() {
           <div>
             <h1 className="ul-title">
               Registered Users
-              <span className="ul-count">{users.length}</span>
+              <span className="ul-count">{totalForTab}</span>
             </h1>
             <p className="ul-sub">Click a card to see full details or delete a user.</p>
           </div>
-          <button className="change-btn" onClick={fetchUsers} disabled={loading}>
+          <button className="change-btn" onClick={fetchAll} disabled={loading}>
             {loading ? 'Loading...' : 'Refresh'}
           </button>
+        </div>
+
+        {/* Event tabs */}
+        <div className="ul-tabs">
+          <button
+            className={`ul-tab ${activeTab === 'all' ? 'ul-tab--active' : ''}`}
+            onClick={() => { setActiveTab('all'); setExpanded(null) }}
+          >
+            All Users
+            <span className="ul-tab-count">{allUsers.length}</span>
+          </button>
+          {events.map(ev => (
+            <button
+              key={ev.id}
+              className={`ul-tab ${activeTab === ev.id ? 'ul-tab--active' : ''}`}
+              onClick={() => { setActiveTab(ev.id); setExpanded(null) }}
+            >
+              {ev.name}
+              <span className="ul-tab-count">{eventUsers[ev.id]?.length ?? '…'}</span>
+            </button>
+          ))}
         </div>
 
         {/* Search */}
@@ -74,15 +122,14 @@ export default function UsersPage() {
         {/* Empty states */}
         {loading && <p className="muted" style={{ textAlign: 'center', padding: '40px 0' }}>Loading users...</p>}
 
-        {!loading && users.length === 0 && (
+        {!loading && displayUsers.length === 0 && (
           <div className="ul-empty">
             <div style={{ fontSize: 48, marginBottom: 12 }}>👤</div>
-            <p>No users registered yet.</p>
-            <p style={{ fontSize: 13, marginTop: 4 }}>Go to Spotregister to add your first user.</p>
+            <p>{activeTab === 'all' ? 'No users registered yet.' : 'No users enrolled in this event.'}</p>
           </div>
         )}
 
-        {!loading && users.length > 0 && filtered.length === 0 && (
+        {!loading && displayUsers.length > 0 && filtered.length === 0 && (
           <div className="ul-empty">
             <p>No users match "<strong>{search}</strong>"</p>
           </div>
@@ -94,14 +141,17 @@ export default function UsersPage() {
             {filtered.map(user => (
               <div key={user.id} className="user-card">
 
-                {/* Card header — click to expand */}
                 <div className="user-card-header" onClick={() => toggleExpand(user.id)}>
-                  {user.image_url
-                    ? <img src={user.image_url} alt={user.name} className="user-thumb" />
-                    : <div className="user-thumb-placeholder">👤</div>
-                  }
+                  <UserAvatar src={user.image_url} name={user.name} imgClass="user-thumb" fallbackClass="user-thumb-placeholder">👤</UserAvatar>
                   <div className="user-info">
-                    <div className="user-name">{user.name}</div>
+                    <div className="user-name">
+                      {user.name}
+                      {user.status && (
+                        <span className={`ul-status-badge ul-status-${user.status}`}>
+                          {user.status === 'present' ? '✓ Checked In' : 'Enrolled'}
+                        </span>
+                      )}
+                    </div>
                     <div className="user-date">
                       {user.email || 'No email'}
                       {user.registered_at && (
@@ -112,7 +162,6 @@ export default function UsersPage() {
                   <span className="user-chevron">{expanded === user.id ? '▲' : '▼'}</span>
                 </div>
 
-                {/* Expanded details */}
                 {expanded === user.id && (
                   <div className="user-details">
                     {user.email && (

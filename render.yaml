@@ -5,11 +5,11 @@ databases:
     user: face_auth_user
 
 services:
-  # ── Backend (FastAPI + DeepFace) ──────────────────────────────────────────
+  # ── Backend (FastAPI + facenet-pytorch) ──────────────────────────────────
   - type: web
     name: face-auth-backend
     runtime: python
-    plan: standard          # free plan lacks RAM for TensorFlow/DeepFace
+    plan: standard
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT

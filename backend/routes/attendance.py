@@ -57,7 +57,6 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
         if not is_live_face(img_array):
             return {"status": "spoof_detected"}
 
-        # Image is already a cropped face from the frontend, so skip detector
         embedding = get_embedding_from_array(img_array)
         if embedding is None:
             print("[detect] DeepFace could not extract embedding")
@@ -71,26 +70,32 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
         if not users:
             return {"status": "no_users_registered"}
 
-        best_match = None
-        best_distance = float("inf")
-
+        scored = []
         for user in users:
             try:
                 user_embedding = np.frombuffer(user.embedding, dtype=np.float32)
                 dist = cosine_distance(embedding, user_embedding)
-                if dist < best_distance:
-                    best_distance = dist
-                    best_match = user
+                scored.append((dist, user))
             except (TypeError, ValueError):
                 continue
 
-        if best_match is None:
+        if not scored:
             return {"status": "no_users_registered"}
 
-        row = best_match
-        distance = best_distance
+        scored.sort(key=lambda x: x[0])
+        distance, row = scored[0]
 
-        print(f"[detect] best match: '{row.name}' distance={distance:.4f} confidence={CONFIDENCE_THRESHOLD} match={MATCH_THRESHOLD}")
+        # Margin check: best match must be noticeably closer than second-best.
+        # If all distances are clustered together the face isn't in the database.
+        MARGIN_THRESHOLD = 0.09
+        if len(scored) > 1:
+            second_distance = scored[1][0]
+            margin = second_distance - distance
+            print(f"[detect] best='{row.name}' d={distance:.4f} 2nd='{scored[1][1].name}' d2={second_distance:.4f} margin={margin:.4f}")
+            if margin < MARGIN_THRESHOLD:
+                return {"status": "not_registered", "distance": round(distance, 4)}
+        else:
+            print(f"[detect] best='{row.name}' distance={distance:.4f} (only user)")
 
         if distance > MATCH_THRESHOLD:
             return {"status": "not_registered", "distance": round(distance, 4)}
@@ -110,6 +115,7 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
                 # Face recognised but not enrolled for this event
                 ws_manager.broadcast({
                     "type": "not_enrolled",
+                    "event_id": request.event_id,
                     "user": {"name": row.name, "image_url": row.image_url},
                     "event_name": event_name,
                     "timestamp": datetime.utcnow().isoformat(),
@@ -146,21 +152,23 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
                     db.rollback()
                     already_attended = True
 
-        ws_manager.broadcast({
-            "type": "match",
-            "user": {
-                "name": row.name,
-                "email": row.email,
-                "phone": row.phone,
-                "linkedin": row.linkedin,
-                "occupation": row.occupation,
-                "image_url": row.image_url,
-                "already_attended": already_attended,
-                "role": row.role,
-            },
-            "event_name": event_name,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        if not already_attended:
+            ws_manager.broadcast({
+                "type": "match",
+                "event_id": request.event_id,
+                "user": {
+                    "name": row.name,
+                    "email": row.email,
+                    "phone": row.phone,
+                    "linkedin": row.linkedin,
+                    "occupation": row.occupation,
+                    "image_url": row.image_url,
+                    "already_attended": False,
+                    "role": row.role,
+                },
+                "event_name": event_name,
+                "timestamp": datetime.utcnow().isoformat(),
+            })
 
         return {
             "status": "matched",
