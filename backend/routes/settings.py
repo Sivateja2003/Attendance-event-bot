@@ -24,7 +24,7 @@ class TestEmailBody(BaseModel):
 def get_email_settings(db: Session = Depends(get_db), current_user=Depends(require_admin)):
     s = db.query(AdminSettings).filter(AdminSettings.user_id == current_user.id).first()
     return {
-        "has_email": bool(s and s.email_user),
+        "email_user": s.email_user if s else None,
         "has_password": bool(s and s.email_password),
     }
 
