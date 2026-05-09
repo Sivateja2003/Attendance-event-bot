@@ -1,7 +1,7 @@
 import asyncio
 from fastapi import APIRouter, BackgroundTasks, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db
+from database import get_db, SessionLocal
 from models import User, Attendance, AdminSettings, Event
 from face_service import get_embedding, save_upload_bytes, save_base64_image, UPLOAD_DIR
 from auth import require_admin
@@ -106,6 +106,39 @@ def list_users(db: Session = Depends(get_db)):
         }
         for u in users
     ]
+
+
+def _run_reindex():
+    """Background task: recompute robust embeddings for all non-admin users from stored photos."""
+    db = SessionLocal()
+    try:
+        users = db.query(User).filter(User.image_url.isnot(None), User.role != "admin").all()
+        updated, failed = 0, 0
+        for user in users:
+            filepath = os.path.join(UPLOAD_DIR, os.path.basename(user.image_url))
+            if not os.path.exists(filepath):
+                print(f"[reindex] {user.name}: photo not found — skipping")
+                failed += 1
+                continue
+            embedding = get_embedding(filepath)
+            if embedding is None:
+                print(f"[reindex] {user.name}: no face detected — skipping")
+                failed += 1
+                continue
+            user.embedding = np.array(embedding, dtype=np.float32).tobytes()
+            db.commit()
+            print(f"[reindex] {user.name}: updated")
+            updated += 1
+        print(f"[reindex] Complete — {updated} updated, {failed} failed")
+    finally:
+        db.close()
+
+
+@router.post("/reindex", dependencies=[Depends(require_admin)])
+async def reindex_embeddings(background_tasks: BackgroundTasks):
+    """Recompute robust embeddings for all registered users from their stored photos."""
+    background_tasks.add_task(_run_reindex)
+    return {"message": "Reindexing started — check server logs for progress."}
 
 
 @router.delete("/users/{user_id}", dependencies=[Depends(require_admin)])

@@ -82,6 +82,23 @@ def _compute_embedding(img_bgr: np.ndarray) -> list | None:
         return None
 
 
+def _compute_robust_embedding(img_bgr: np.ndarray) -> list | None:
+    """Average embeddings across augmented views so the stored vector is less
+    sensitive to lighting, mirroring, and minor accessory changes (e.g. glasses)."""
+    variants = [
+        img_bgr,
+        cv2.flip(img_bgr, 1),
+        np.clip(img_bgr.astype(np.float32) * 1.2, 0, 255).astype(np.uint8),
+        np.clip(img_bgr.astype(np.float32) * 0.8, 0, 255).astype(np.uint8),
+    ]
+    embeddings = [e for v in variants if (e := _compute_embedding(v)) is not None]
+    if not embeddings:
+        return None
+    avg = np.mean(embeddings, axis=0)
+    norm = np.linalg.norm(avg)
+    return (avg / norm).tolist() if norm > 0 else avg.tolist()
+
+
 def get_embedding(image_path: str) -> list | None:
     img = cv2.imread(image_path)
     if img is None:
@@ -104,7 +121,7 @@ def get_embedding(image_path: str) -> list | None:
         y2 = min(img.shape[0], y + h + pad_y)
         img = img[y1:y2, x1:x2]
 
-    return _compute_embedding(img)
+    return _compute_robust_embedding(img)
 
 
 def get_embedding_from_array(img_array: np.ndarray) -> list | None:

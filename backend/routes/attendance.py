@@ -85,14 +85,15 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
         scored.sort(key=lambda x: x[0])
         distance, row = scored[0]
 
-        # Margin check: best match must be noticeably closer than second-best.
-        # If all distances are clustered together the face isn't in the database.
+        # Margin check: only required for borderline matches (distance > CONFIDENCE_THRESHOLD).
+        # When we're already confident (low distance), skip the margin check — a tight cluster
+        # of distances is normal as the user base grows.
         MARGIN_THRESHOLD = 0.09
         if len(scored) > 1:
             second_distance = scored[1][0]
             margin = second_distance - distance
             print(f"[detect] best='{row.name}' d={distance:.4f} 2nd='{scored[1][1].name}' d2={second_distance:.4f} margin={margin:.4f}")
-            if margin < MARGIN_THRESHOLD:
+            if distance > CONFIDENCE_THRESHOLD and margin < MARGIN_THRESHOLD:
                 return {"status": "not_registered", "distance": round(distance, 4)}
         else:
             print(f"[detect] best='{row.name}' distance={distance:.4f} (only user)")
