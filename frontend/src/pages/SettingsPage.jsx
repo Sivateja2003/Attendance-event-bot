@@ -8,6 +8,7 @@ export default function SettingsPage() {
   const [emailUser, setEmailUser] = useState('')
   const [emailPassword, setEmailPassword] = useState('')
   const [emailFrom, setEmailFrom] = useState('')
+  const [hasEmail, setHasEmail] = useState(false)
   const [hasPassword, setHasPassword] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -23,8 +24,7 @@ export default function SettingsPage() {
     apiFetch('/api/settings/email')
       .then(r => r.json())
       .then(data => {
-        setEmailUser(data.email_user || '')
-        setEmailFrom(data.email_from || '')
+        setHasEmail(data.has_email || false)
         setHasPassword(data.has_password || false)
       })
       .catch(() => {})
@@ -35,10 +35,8 @@ export default function SettingsPage() {
     setSaving(true)
     setSaveMsg(null)
     try {
-      const body = {
-        email_user: emailUser,
-        email_from: emailFrom,
-      }
+      const body = { email_from: emailFrom }
+      if (emailUser) body.email_user = emailUser
       if (emailPassword) body.email_password = emailPassword
 
       const res = await apiFetch('/api/settings/email', {
@@ -48,8 +46,11 @@ export default function SettingsPage() {
       })
       if (res.ok) {
         setSaveMsg({ type: 'success', text: 'Settings saved successfully!' })
+        if (emailUser) setHasEmail(true)
         if (emailPassword) setHasPassword(true)
+        setEmailUser('')
         setEmailPassword('')
+        setEmailFrom('')
       } else {
         const err = await res.json()
         setSaveMsg({ type: 'error', text: err.detail || 'Failed to save.' })
@@ -71,6 +72,7 @@ export default function SettingsPage() {
         setEmailUser('')
         setEmailPassword('')
         setEmailFrom('')
+        setHasEmail(false)
         setHasPassword(false)
         setSaveMsg({ type: 'success', text: 'Gmail configuration removed.' })
       } else {
@@ -108,7 +110,7 @@ export default function SettingsPage() {
     }
   }
 
-  const isConfigured = !!(emailUser && hasPassword)
+  const isConfigured = !!(hasEmail && hasPassword)
 
   return (
     <div className="stg-page">
@@ -139,14 +141,17 @@ export default function SettingsPage() {
 
           <form className="stg-form" onSubmit={handleSave}>
             <div className="stg-field">
-              <label className="stg-label">Gmail Address <span className="req">*</span></label>
+              <label className="stg-label">
+                Gmail Address <span className="req">*</span>
+                {hasEmail && <span className="stg-label-hint"> — already set, enter new address to change</span>}
+              </label>
               <input
                 className="stg-input"
                 type="email"
-                placeholder="yourname@gmail.com"
+                placeholder={hasEmail ? '••••••••••••••••' : 'yourname@gmail.com'}
                 value={emailUser}
                 onChange={e => setEmailUser(e.target.value)}
-                required
+                required={!hasEmail}
               />
             </div>
 
@@ -184,7 +189,7 @@ export default function SettingsPage() {
               <input
                 className="stg-input"
                 type="email"
-                placeholder={emailUser || 'yourname@gmail.com'}
+                placeholder="yourname@gmail.com"
                 value={emailFrom}
                 onChange={e => setEmailFrom(e.target.value)}
               />
