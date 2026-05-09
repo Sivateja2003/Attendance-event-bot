@@ -37,7 +37,7 @@ export default function SettingsPage() {
     try {
       const body = {
         email_user: emailUser,
-        email_from: emailFrom || emailUser,
+        email_from: emailFrom,
       }
       if (emailPassword) body.email_password = emailPassword
 
