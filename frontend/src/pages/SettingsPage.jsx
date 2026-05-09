@@ -23,7 +23,6 @@ export default function SettingsPage() {
     apiFetch('/api/settings/email')
       .then(r => r.json())
       .then(data => {
-        setEmailUser(data.email_user || '')
         setHasPassword(data.has_password || false)
       })
       .catch(() => {})
