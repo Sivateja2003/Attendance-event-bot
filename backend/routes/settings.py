@@ -49,6 +49,15 @@ def update_email_settings(body: EmailSettingsBody, db: Session = Depends(get_db)
     return {"success": True}
 
 
+@router.delete("/email")
+def delete_email_settings(db: Session = Depends(get_db), current_user=Depends(require_admin)):
+    s = db.query(AdminSettings).filter(AdminSettings.user_id == current_user.id).first()
+    if s:
+        db.delete(s)
+        db.commit()
+    return {"success": True}
+
+
 @router.post("/email/test")
 def test_email(body: TestEmailBody, db: Session = Depends(get_db), current_user=Depends(require_admin)):
     s = db.query(AdminSettings).filter(AdminSettings.user_id == current_user.id).first()

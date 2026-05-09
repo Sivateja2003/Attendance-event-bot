@@ -13,6 +13,7 @@ export default function SettingsPage() {
 
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState(null)
+  const [removing, setRemoving] = useState(false)
 
   const [testEmail, setTestEmail] = useState('')
   const [testing, setTesting] = useState(false)
@@ -57,6 +58,29 @@ export default function SettingsPage() {
       setSaveMsg({ type: 'error', text: 'Network error. Please try again.' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleRemove() {
+    if (!window.confirm('Remove Gmail configuration? Confirmation emails will stop being sent.')) return
+    setRemoving(true)
+    setSaveMsg(null)
+    try {
+      const res = await apiFetch('/api/settings/email', { method: 'DELETE' })
+      if (res.ok) {
+        setEmailUser('')
+        setEmailPassword('')
+        setEmailFrom('')
+        setHasPassword(false)
+        setSaveMsg({ type: 'success', text: 'Gmail configuration removed.' })
+      } else {
+        const err = await res.json()
+        setSaveMsg({ type: 'error', text: err.detail || 'Failed to remove.' })
+      }
+    } catch {
+      setSaveMsg({ type: 'error', text: 'Network error. Please try again.' })
+    } finally {
+      setRemoving(false)
     }
   }
 
@@ -169,9 +193,16 @@ export default function SettingsPage() {
 
             {saveMsg && <div className={`stg-msg ${saveMsg.type}`}>{saveMsg.text}</div>}
 
-            <button className="stg-save-btn" disabled={saving}>
-              {saving ? 'Saving...' : 'Save Email Settings'}
-            </button>
+            <div className="stg-btn-row">
+              <button className="stg-save-btn" disabled={saving}>
+                {saving ? 'Saving...' : 'Save Email Settings'}
+              </button>
+              {isConfigured && (
+                <button type="button" className="stg-remove-btn" onClick={handleRemove} disabled={removing}>
+                  {removing ? 'Removing...' : 'Remove Gmail'}
+                </button>
+              )}
+            </div>
           </form>
         </div>
 

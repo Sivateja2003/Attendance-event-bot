@@ -2305,6 +2305,24 @@ html, body, #root {
 .stg-save-btn:hover:not(:disabled) { opacity: 0.88; }
 .stg-save-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
+.stg-btn-row { display: flex; gap: 10px; }
+.stg-btn-row .stg-save-btn { flex: 1; }
+
+.stg-remove-btn {
+  padding: 13px 20px;
+  background: transparent;
+  color: var(--accent-red);
+  border: 1px solid var(--accent-red);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+.stg-remove-btn:hover:not(:disabled) { background: rgba(255,68,85,0.1); }
+.stg-remove-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
 .stg-test-row { display: flex; gap: 10px; }
 .stg-test-row .stg-input { flex: 1; }
 .stg-test-btn {
