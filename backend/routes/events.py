@@ -108,6 +108,15 @@ def create_event(body: EventCreate, db: Session = Depends(get_db), current_user=
     }
 
 
+@router.get("/{event_id}/info")
+def get_event_info(event_id: int, db: Session = Depends(get_db)):
+    """Public endpoint — returns basic event info for the mobile scan page."""
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found.")
+    return {"id": event.id, "name": event.name, "description": event.description}
+
+
 @router.get("/{event_id}/users", dependencies=[Depends(require_admin)])
 def event_users(event_id: int, db: Session = Depends(get_db)):
     rows = db.execute(text("""

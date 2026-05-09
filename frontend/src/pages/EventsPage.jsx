@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { QRCodeCanvas } from 'qrcode.react'
 import { apiFetch } from '../config'
 
 const MONTH_NAMES = [
@@ -101,7 +102,18 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState(null)
   const [urlModal, setUrlModal] = useState(null)
+  const [qrModal, setQrModal] = useState(null)
   const [copied, setCopied] = useState(null)
+  const qrCanvasRef = useRef(null)
+
+  function downloadQR(eventName) {
+    const canvas = document.querySelector('.qr-modal-canvas canvas')
+    if (!canvas) return
+    const link = document.createElement('a')
+    link.download = `qr-${eventName.replace(/\s+/g, '-').toLowerCase()}.png`
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+  }
 
   useEffect(() => { loadEvents() }, [])
 
@@ -141,9 +153,11 @@ export default function EventsPage() {
       setExpiresAt('')
       setMsg({ type: 'success', text: `"${event.name}" created successfully!` })
       setUrlModal({
+        id: event.id,
         name: event.name,
         displayUrl: `${window.location.origin}/display/${event.id}`,
         registerUrl: `${window.location.origin}/register/${event.id}`,
+        scanUrl: `${window.location.origin}/scan/${event.id}`,
       })
     } catch {
       setMsg({ type: 'error', text: 'Network error. Please try again.' })
@@ -169,13 +183,50 @@ export default function EventsPage() {
   return (
     <div className="ev-page">
 
+      {qrModal && (
+        <div className="url-modal-backdrop" onClick={() => setQrModal(null)}>
+          <div className="url-modal" onClick={e => e.stopPropagation()}>
+            <button className="url-modal-close" onClick={() => setQrModal(null)}>✕</button>
+            <div className="url-modal-title">Scan QR to Check In</div>
+            <div className="url-modal-event">{qrModal.name}</div>
+            <div className="url-modal-qr qr-modal-canvas">
+              <QRCodeCanvas value={qrModal.scanUrl} size={220} level="M" includeMargin={true} />
+            </div>
+            <div className="url-modal-qr-hint">Attendees scan this to check in using their face</div>
+            <div className="url-modal-btn-row">
+              <button className="url-modal-copy" onClick={() => copyText(qrModal.scanUrl, 'qr-scan')}>
+                {copied === 'qr-scan' ? 'Copied!' : 'Copy Scan URL'}
+              </button>
+              <button className="url-modal-copy url-modal-copy--outline" onClick={() => downloadQR(qrModal.name)}>
+                Download QR
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {urlModal && (
         <div className="url-modal-backdrop" onClick={() => setUrlModal(null)}>
           <div className="url-modal" onClick={e => e.stopPropagation()}>
             <button className="url-modal-close" onClick={() => setUrlModal(null)}>✕</button>
             <div className="url-modal-title">Event Created</div>
             <div className="url-modal-event">{urlModal.name}</div>
-            <p className="url-modal-desc">Display screen (no login required):</p>
+
+            <p className="url-modal-desc" style={{ marginTop: 16 }}>Mobile face check-in QR code:</p>
+            <div className="url-modal-qr qr-modal-canvas">
+              <QRCodeCanvas value={urlModal.scanUrl} size={180} level="M" includeMargin={true} />
+            </div>
+            <div className="url-modal-qr-hint">Attendees scan this to check in using their face</div>
+            <div className="url-modal-btn-row">
+              <button className="url-modal-copy" onClick={() => copyText(urlModal.scanUrl, 'modal-scan')}>
+                {copied === 'modal-scan' ? 'Copied!' : 'Copy Scan URL'}
+              </button>
+              <button className="url-modal-copy url-modal-copy--outline" onClick={() => downloadQR(urlModal.name)}>
+                Download QR
+              </button>
+            </div>
+
+            <p className="url-modal-desc" style={{ marginTop: 16 }}>Display screen (no login required):</p>
             <div className="url-modal-box">{urlModal.displayUrl}</div>
             <button
               className="url-modal-copy"
@@ -282,6 +333,12 @@ export default function EventsPage() {
                     )}
                   </div>
                   <div className="ev-card-urls">
+                    <button
+                      className="ev-url-btn ev-url-btn--qr"
+                      onClick={() => setQrModal({ name: ev.name, scanUrl: `${window.location.origin}/scan/${ev.id}` })}
+                    >
+                      Show QR Code
+                    </button>
                     <button
                       className="ev-url-btn"
                       onClick={() => copyText(`${window.location.origin}/display/${ev.id}`, `display-${ev.id}`)}
