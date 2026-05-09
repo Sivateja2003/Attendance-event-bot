@@ -2475,3 +2475,360 @@ html, body, #root {
   opacity: 0.25;
   cursor: default;
 }
+
+/* ── QR modal additions ──────────────────────────────────────── */
+.url-modal-qr {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0 8px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+}
+.url-modal-qr-hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.url-modal-btn-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 0;
+}
+.url-modal-btn-row .url-modal-copy {
+  flex: 1;
+}
+.url-modal-copy--outline {
+  background: transparent !important;
+  border: 1.5px solid var(--accent) !important;
+  color: var(--accent) !important;
+}
+.url-modal-copy--outline:hover { background: rgba(108,99,255,0.08) !important; }
+
+.ev-url-btn--qr {
+  background: rgba(108,99,255,0.12);
+  color: var(--accent);
+  font-weight: 700;
+  border-color: rgba(108,99,255,0.3);
+}
+.ev-url-btn--qr:hover { background: rgba(108,99,255,0.22); border-color: var(--accent); }
+
+/* ── Mobile Scan Page ──────────────────────────────────────────── */
+.mscan-page {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  height: 100vh;
+  background: #000;
+  overflow: hidden;
+}
+
+.mscan-header {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 20;
+  padding: 16px 20px 12px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+.mscan-brand {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.5);
+  text-transform: uppercase;
+}
+.mscan-event-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+}
+
+.mscan-camera-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  overflow: hidden;
+}
+
+.mscan-webcam {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Face frame corners */
+.mscan-face-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -60%);
+  width: min(65vw, 260px);
+  height: min(65vw, 260px);
+  pointer-events: none;
+}
+.mscan-corner {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-color: rgba(108,99,255,0.9);
+  border-style: solid;
+}
+.mscan-tl { top: 0; left: 0; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+.mscan-tr { top: 0; right: 0; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+.mscan-bl { bottom: 0; left: 0; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+.mscan-br { bottom: 0; right: 0; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+
+/* Status pill */
+.mscan-status {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px);
+  border-radius: 40px;
+  padding: 10px 20px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  z-index: 10;
+}
+.mscan-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--accent-green, #22c55e);
+  animation: blink 1.2s ease-in-out infinite;
+}
+.mscan-status.identifying .mscan-dot {
+  background: #f59e0b;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Result overlay */
+.mscan-result-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  animation: fadeIn 0.25s ease;
+}
+.mscan-result-overlay.mscan-result--success { background: rgba(34,197,94,0.18); }
+.mscan-result-overlay.mscan-result--not_enrolled { background: rgba(245,158,11,0.18); }
+.mscan-result-overlay.mscan-result--unknown,
+.mscan-result-overlay.mscan-result--error { background: rgba(239,68,68,0.18); }
+.mscan-result-overlay.mscan-result--warning { background: rgba(245,158,11,0.18); }
+
+.mscan-result-card {
+  background: rgba(15,14,23,0.88);
+  backdrop-filter: blur(16px);
+  border-radius: 24px;
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: min(300px, 85vw);
+  max-width: 90vw;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.mscan-result-photo {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(108,99,255,0.6);
+}
+.mscan-result-photo-placeholder {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: rgba(108,99,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  color: rgba(108,99,255,0.6);
+  font-weight: 700;
+}
+
+.mscan-result-badge {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 5px 16px;
+  border-radius: 40px;
+}
+.mscan-result-badge.checkedin {
+  background: rgba(34,197,94,0.2);
+  color: #22c55e;
+  border: 1px solid rgba(34,197,94,0.4);
+}
+.mscan-result-badge.already {
+  background: rgba(245,158,11,0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245,158,11,0.35);
+}
+
+.mscan-result-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+}
+.mscan-result-msg {
+  font-size: 14px;
+  color: var(--muted, rgba(255,255,255,0.55));
+  text-align: center;
+  line-height: 1.5;
+}
+
+.mscan-result-icon-big {
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; font-weight: 900;
+}
+.mscan-icon--warn {
+  background: rgba(245,158,11,0.2);
+  color: #f59e0b;
+  border: 2px solid rgba(245,158,11,0.4);
+}
+.mscan-icon--err {
+  background: rgba(239,68,68,0.2);
+  color: #ef4444;
+  border: 2px solid rgba(239,68,68,0.4);
+}
+
+/* Start overlay */
+.mscan-start-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 25;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(4px);
+}
+.mscan-start-card {
+  background: rgba(15,14,23,0.92);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 28px;
+  padding: 40px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  min-width: min(320px, 88vw);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  text-align: center;
+}
+.mscan-start-icon {
+  font-size: 40px;
+  color: var(--accent, #6c63ff);
+  line-height: 1;
+}
+.mscan-start-event {
+  font-size: 20px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+}
+.mscan-start-sub {
+  font-size: 14px;
+  color: rgba(255,255,255,0.5);
+  line-height: 1.5;
+}
+.mscan-start-sound-note {
+  font-size: 12px;
+  color: rgba(255,255,255,0.3);
+  margin-top: -6px;
+}
+.mscan-sound-btn {
+  position: absolute;
+  top: 80px;
+  right: 16px;
+  z-index: 20;
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 50%;
+  width: 44px; height: 44px;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+  transition: background 0.2s;
+}
+.mscan-sound-btn:active { background: rgba(108,99,255,0.5); }
+.mscan-start-btn {
+  margin-top: 8px;
+  padding: 15px 40px;
+  background: var(--accent, #6c63ff);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.12s;
+  letter-spacing: 0.3px;
+}
+.mscan-start-btn:active { transform: scale(0.97); }
+.mscan-start-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Error screen */
+.mscan-error-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  height: 100vh;
+  padding: 40px;
+  text-align: center;
+  background: var(--bg, #0f0e17);
+}
+.mscan-error-icon {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  background: rgba(239,68,68,0.15);
+  border: 2px solid rgba(239,68,68,0.4);
+  color: #ef4444;
+  font-size: 32px;
+  display: flex; align-items: center; justify-content: center;
+}
+.mscan-error-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+}
+.mscan-error-sub {
+  font-size: 14px;
+  color: rgba(255,255,255,0.5);
+  line-height: 1.6;
+  max-width: 300px;
+}
+

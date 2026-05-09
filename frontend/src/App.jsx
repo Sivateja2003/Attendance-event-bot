@@ -9,6 +9,7 @@ import EventRegisterPage from './pages/EventRegisterPage'
 import EventsPage from './pages/EventsPage'
 import SettingsPage from './pages/SettingsPage'
 import SignupPage from './pages/SignupPage'
+import MobileScanPage from './pages/MobileScanPage'
 import { AuthProvider, RequireAuth, useAuth } from './auth'
 
 function Nav() {
@@ -18,6 +19,7 @@ function Nav() {
 
   if (pathname.startsWith('/display')) return null
   if (pathname.startsWith('/register')) return null
+  if (pathname.startsWith('/scan')) return null
 
   async function handleLogout() {
     await logout()
@@ -79,6 +81,7 @@ export default function App() {
           <Route path="/register" element={<SignupPage />} />
           <Route path="/display/:eventId" element={<DisplayPage />} />
           <Route path="/register/:eventId" element={<EventRegisterPage />} />
+          <Route path="/scan/:eventId" element={<MobileScanPage />} />
 
           {/* Admin-only routes */}
           <Route path="/" element={<RequireAuth role="admin"><AttendancePage /></RequireAuth>} />
