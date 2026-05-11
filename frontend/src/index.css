@@ -1631,6 +1631,13 @@ html, body, #root {
 .dp-face--back {
   transform: rotateY(180deg);
   background: #07071a;
+  pointer-events: none;
+}
+.dp-flipper--flipped .dp-face--front {
+  pointer-events: none;
+}
+.dp-flipper--flipped .dp-face--back {
+  pointer-events: auto;
 }
 
 /* Swipe hint */
