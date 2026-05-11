@@ -320,12 +320,14 @@ export default function DisplayPage() {
         const data = JSON.parse(e.data)
         if (numericEventId !== null && data.event_id !== numericEventId) return
 
-        // Popup + sound + confetti for every scan after the first
+        // Confetti + sound on every scan
+        playCheckInSound()
+        fireConfetti()
+
+        // Popup only after the first scan
         if (hasSeenScan.current) {
           clearTimeout(popupTimer.current)
           setPopup(data)
-          playCheckInSound()
-          fireConfetti()
           popupTimer.current = setTimeout(() => setPopup(null), 4000)
         }
         hasSeenScan.current = true
