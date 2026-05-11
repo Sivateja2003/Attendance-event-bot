@@ -176,6 +176,49 @@ function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, o
   )
 }
 
+/* ── Celebration sound ──────────────────────────────────────────── */
+function playCheckInSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const notes = [523.25, 659.25, 783.99, 1046.50] // C5 E5 G5 C6
+    notes.forEach((freq, i) => {
+      const t = ctx.currentTime + i * 0.1
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      gain.gain.setValueAtTime(0, t)
+      gain.gain.linearRampToValueAtTime(0.2, t + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3)
+      osc.start(t)
+      osc.stop(t + 0.3)
+    })
+  } catch (e) {}
+}
+
+/* ── Scan popup ─────────────────────────────────────────────────── */
+function ScanPopup({ data }) {
+  const { user } = data
+  return (
+    <div className="dp-popup">
+      <div className="dp-popup-emoji">🎉</div>
+      <UserAvatar
+        src={user.image_url}
+        name={user.name}
+        imgClass="dp-popup-photo"
+        fallbackClass="dp-popup-avatar"
+        apiBase={API_BASE}
+      >
+        {user.name?.[0]?.toUpperCase()}
+      </UserAvatar>
+      <div className="dp-popup-name">{user.name}</div>
+      <div className="dp-popup-sub">Just checked in! 🎊</div>
+    </div>
+  )
+}
+
 /* ── Main DisplayPage ───────────────────────────────────────────── */
 export default function DisplayPage() {
   const { eventId } = useParams()
@@ -189,10 +232,13 @@ export default function DisplayPage() {
   const [participants, setParticipants] = useState([])
   const [partIndex, setPartIndex]       = useState(0)
   const [partLoading, setPartLoading]   = useState(false)
+  const [popup, setPopup]               = useState(null)
 
-  const touchStartX = useRef(0)
-  const touchStartY = useRef(0)
-  const mouseStartX = useRef(null)
+  const touchStartX    = useRef(0)
+  const touchStartY    = useRef(0)
+  const mouseStartX    = useRef(null)
+  const hasSeenScan    = useRef(false)
+  const popupTimer     = useRef(null)
 
   /* ── Fetch event name ── */
   useEffect(() => {
@@ -242,6 +288,13 @@ export default function DisplayPage() {
       ws.onmessage = (e) => {
         const data = JSON.parse(e.data)
         if (numericEventId !== null && data.event_id !== numericEventId) return
+        if (hasSeenScan.current) {
+          clearTimeout(popupTimer.current)
+          setPopup(data)
+          playCheckInSound()
+          popupTimer.current = setTimeout(() => setPopup(null), 4000)
+        }
+        hasSeenScan.current = true
         setPerson(data)
         setView('main')
       }
@@ -385,6 +438,8 @@ export default function DisplayPage() {
         </div>
 
       </div>
+
+      {popup && <ScanPopup data={popup} />}
     </div>
   )
 }
