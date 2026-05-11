@@ -1694,6 +1694,26 @@ html, body, #root {
   color: #fff;
 }
 
+/* ── Open Participants button (top-right of main display) ──── */
+.dp-open-participants-btn {
+  position: absolute;
+  top: 22px;
+  right: 28px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.75);
+  font-size: 0.85rem;
+  padding: 8px 18px;
+  border-radius: 20px;
+  cursor: pointer;
+  z-index: 10;
+  transition: background 0.2s, color 0.2s;
+}
+.dp-open-participants-btn:hover {
+  background: rgba(255,255,255,0.16);
+  color: #fff;
+}
+
 /* ── Event picker panel ─────────────────────────────────────── */
 .dp-events-panel {
   width: 100%;

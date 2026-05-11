@@ -332,6 +332,12 @@ export default function DisplayPage() {
         {/* ── Front — main display ── */}
         <div className="dp-face dp-face--front">
           {person ? <PersonCard data={person} /> : <IdleScreen connected={connected} eventName={eventName} />}
+          <button
+            className="dp-open-participants-btn"
+            onClick={() => { setView('profiles'); loadParticipants() }}
+          >
+            Open Participants
+          </button>
           <div className="dp-swipe-hint dp-swipe-hint--left">
             <span className="dp-swipe-arrow">‹</span> swipe to see attendees
           </div>
