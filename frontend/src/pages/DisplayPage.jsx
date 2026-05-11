@@ -239,6 +239,9 @@ export default function DisplayPage() {
   const mouseStartX    = useRef(null)
   const hasSeenScan    = useRef(false)
   const popupTimer     = useRef(null)
+  const idleTimer      = useRef(null)
+
+  const IDLE_TIMEOUT_MS = 60 * 60 * 1000 // 1 hour
 
   /* ── Fetch event name ── */
   useEffect(() => {
@@ -288,6 +291,8 @@ export default function DisplayPage() {
       ws.onmessage = (e) => {
         const data = JSON.parse(e.data)
         if (numericEventId !== null && data.event_id !== numericEventId) return
+
+        // Show popup + sound for every scan after the first
         if (hasSeenScan.current) {
           clearTimeout(popupTimer.current)
           setPopup(data)
@@ -295,6 +300,11 @@ export default function DisplayPage() {
           popupTimer.current = setTimeout(() => setPopup(null), 4000)
         }
         hasSeenScan.current = true
+
+        // Reset 1-hour idle timer on every scan
+        clearTimeout(idleTimer.current)
+        idleTimer.current = setTimeout(() => setPerson(null), IDLE_TIMEOUT_MS)
+
         setPerson(data)
         setView('main')
       }
@@ -306,7 +316,10 @@ export default function DisplayPage() {
     }
 
     connect()
-    return () => clearTimeout(reconnectTimer)
+    return () => {
+      clearTimeout(reconnectTimer)
+      clearTimeout(idleTimer.current)
+    }
   }, [numericEventId])
 
   /* ── Swipe / drag ── */
