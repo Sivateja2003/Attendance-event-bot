@@ -14,7 +14,7 @@ function getTimeGreeting() {
 }
 
 const DETECT_EVERY_MS = 250
-const RESULT_DISPLAY_MS = 5000
+const RESULT_DISPLAY_MS = 3000
 const NO_FACE_COOLDOWN_MS = 2000
 const MIN_FACE_RATIO = 0.18   // face must be at least 18% of frame width for clean embedding
 
@@ -274,6 +274,15 @@ export default function AttendancePage() {
                 <div className="result-text">
                   <div className="result-icon">✓</div>
                   <div className="result-name">{result.user?.name}</div>
+                  {result.user?.occupation && (
+                    <div className="result-detail">{result.user.occupation}</div>
+                  )}
+                  {result.user?.email && (
+                    <div className="result-detail">✉ {result.user.email}</div>
+                  )}
+                  {result.user?.phone && (
+                    <div className="result-detail">📞 {result.user.phone}</div>
+                  )}
                   <div className="result-message">{result.message}</div>
                 </div>
               </div>

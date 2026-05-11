@@ -193,6 +193,11 @@ html, body, #root {
   font-size: 14px;
   color: var(--muted);
 }
+.result-detail {
+  font-size: 13px;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 3px;
+}
 
 /* Activate overlay */
 .activate-overlay {
@@ -2784,6 +2789,35 @@ html, body, #root {
   font-size: 12px;
   color: rgba(255,255,255,0.3);
   margin-top: -6px;
+}
+.mscan-ios-mute-note {
+  font-size: 11px;
+  color: rgba(255,200,80,0.75);
+  margin-top: 4px;
+  text-align: center;
+}
+.mscan-speech-banner {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10,10,20,0.82);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 14px;
+  padding: 10px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(108,99,255,0.4);
+  z-index: 30;
+  max-width: 90%;
+  text-align: center;
+  pointer-events: none;
+}
+.mscan-result-detail {
+  font-size: 12px;
+  color: rgba(255,255,255,0.65);
+  margin-top: 3px;
+  text-align: center;
 }
 .mscan-sound-btn {
   position: absolute;
