@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom'
 import { API_BASE, WS_BASE, apiFetch } from '../config'
 import UserAvatar from '../components/UserAvatar'
 
-const DISPLAY_DURATION_MS = 7000
 const WS_URL = `${WS_BASE}/ws/display`
 const REFRESH_MS = 5000
 
@@ -89,7 +88,6 @@ function PersonCard({ data }) {
           </p>
         )}
       </div>
-      <div className="dp-progress" style={{ animationDuration: `${DISPLAY_DURATION_MS}ms` }} />
     </div>
   )
 }
@@ -192,7 +190,6 @@ export default function DisplayPage() {
   const [partIndex, setPartIndex]       = useState(0)
   const [partLoading, setPartLoading]   = useState(false)
 
-  const clearRef    = useRef(null)
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
   const mouseStartX = useRef(null)
@@ -244,12 +241,9 @@ export default function DisplayPage() {
       ws.onopen  = () => setConnected(true)
       ws.onmessage = (e) => {
         const data = JSON.parse(e.data)
-        // If event-scoped, ignore messages from other events
         if (numericEventId !== null && data.event_id !== numericEventId) return
-        clearTimeout(clearRef.current)
         setPerson(data)
         setView('main')
-        clearRef.current = setTimeout(() => setPerson(null), DISPLAY_DURATION_MS)
       }
       ws.onclose = () => {
         setConnected(false)
@@ -259,10 +253,7 @@ export default function DisplayPage() {
     }
 
     connect()
-    return () => {
-      clearTimeout(reconnectTimer)
-      clearTimeout(clearRef.current)
-    }
+    return () => clearTimeout(reconnectTimer)
   }, [numericEventId])
 
   /* ── Swipe / drag ── */
