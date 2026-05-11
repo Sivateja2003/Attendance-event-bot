@@ -240,8 +240,28 @@ export default function DisplayPage() {
   const hasSeenScan    = useRef(false)
   const popupTimer     = useRef(null)
   const idleTimer      = useRef(null)
+  const scanQueue      = useRef([])
+  const isDisplaying   = useRef(false)
+  const displayTimer   = useRef(null)
+  const showNextRef    = useRef(null)
 
-  const IDLE_TIMEOUT_MS = 60 * 60 * 1000 // 1 hour
+  const IDLE_TIMEOUT_MS  = 60 * 60 * 1000 // 1 hour
+  const DISPLAY_MIN_MS   = 2000            // min time each person stays on screen
+
+  // Defined via ref so setTimeout inside can always call the latest version
+  showNextRef.current = function showNext() {
+    if (scanQueue.current.length === 0) {
+      isDisplaying.current = false
+      return
+    }
+    isDisplaying.current = true
+    const next = scanQueue.current.shift()
+    setPerson(next)
+    setView('main')
+    clearTimeout(idleTimer.current)
+    idleTimer.current = setTimeout(() => setPerson(null), IDLE_TIMEOUT_MS)
+    displayTimer.current = setTimeout(() => showNextRef.current(), DISPLAY_MIN_MS)
+  }
 
   /* ── Fetch event name ── */
   useEffect(() => {
@@ -292,7 +312,7 @@ export default function DisplayPage() {
         const data = JSON.parse(e.data)
         if (numericEventId !== null && data.event_id !== numericEventId) return
 
-        // Show popup + sound for every scan after the first
+        // Popup + sound for every scan after the first
         if (hasSeenScan.current) {
           clearTimeout(popupTimer.current)
           setPopup(data)
@@ -301,12 +321,11 @@ export default function DisplayPage() {
         }
         hasSeenScan.current = true
 
-        // Reset 1-hour idle timer on every scan
-        clearTimeout(idleTimer.current)
-        idleTimer.current = setTimeout(() => setPerson(null), IDLE_TIMEOUT_MS)
-
-        setPerson(data)
-        setView('main')
+        // Queue the scan — each person gets at least DISPLAY_MIN_MS on screen
+        scanQueue.current.push(data)
+        if (!isDisplaying.current) {
+          showNextRef.current()
+        }
       }
       ws.onclose = () => {
         setConnected(false)
@@ -319,6 +338,7 @@ export default function DisplayPage() {
     return () => {
       clearTimeout(reconnectTimer)
       clearTimeout(idleTimer.current)
+      clearTimeout(displayTimer.current)
     }
   }, [numericEventId])
 
