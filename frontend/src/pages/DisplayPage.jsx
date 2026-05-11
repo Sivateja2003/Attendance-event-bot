@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
+import confetti from 'canvas-confetti'
 import { API_BASE, WS_BASE, apiFetch } from '../config'
 import UserAvatar from '../components/UserAvatar'
 
@@ -176,6 +177,13 @@ function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, o
   )
 }
 
+/* ── Confetti burst ─────────────────────────────────────────────── */
+function fireConfetti() {
+  const opts = { particleCount: 80, spread: 70, startVelocity: 45, ticks: 200 }
+  confetti({ ...opts, origin: { x: 0.2, y: 0.6 } })
+  confetti({ ...opts, origin: { x: 0.8, y: 0.6 } })
+}
+
 /* ── Celebration sound ──────────────────────────────────────────── */
 function playCheckInSound() {
   try {
@@ -312,11 +320,12 @@ export default function DisplayPage() {
         const data = JSON.parse(e.data)
         if (numericEventId !== null && data.event_id !== numericEventId) return
 
-        // Popup + sound for every scan after the first
+        // Popup + sound + confetti for every scan after the first
         if (hasSeenScan.current) {
           clearTimeout(popupTimer.current)
           setPopup(data)
           playCheckInSound()
+          fireConfetti()
           popupTimer.current = setTimeout(() => setPopup(null), 4000)
         }
         hasSeenScan.current = true
