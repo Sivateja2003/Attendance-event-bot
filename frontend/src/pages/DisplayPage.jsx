@@ -267,17 +267,23 @@ export default function DisplayPage() {
 
   /* ── Swipe / drag ── */
   function handleTouchStart(e) {
+    if (e.target.closest('button')) return
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
   }
   function handleTouchEnd(e) {
+    if (e.target.closest('button')) return
     const dx = e.changedTouches[0].clientX - touchStartX.current
     const dy = e.changedTouches[0].clientY - touchStartY.current
     if (Math.abs(dy) > Math.abs(dx)) return
     handleSwipe(dx)
   }
-  function handleMouseDown(e) { mouseStartX.current = e.clientX }
+  function handleMouseDown(e) {
+    if (e.target.closest('button')) return
+    mouseStartX.current = e.clientX
+  }
   function handleMouseUp(e) {
+    if (e.target.closest('button')) { mouseStartX.current = null; return }
     if (mouseStartX.current === null) return
     const dx = e.clientX - mouseStartX.current
     mouseStartX.current = null
