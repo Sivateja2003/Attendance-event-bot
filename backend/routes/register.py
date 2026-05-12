@@ -20,6 +20,7 @@ async def register_user(
     phone: str = Form(None),
     linkedin: str = Form(None),
     occupation: str = Form(None),
+    description: str = Form(None),
     event_id: int = Form(None),
     image: UploadFile = File(None),
     image_base64: str = Form(None),
@@ -58,6 +59,7 @@ async def register_user(
         phone=phone.strip() if phone else None,
         linkedin=linkedin.strip() if linkedin else None,
         occupation=occupation.strip() if occupation else None,
+        description=description.strip() if description else None,
         image_url=image_url,
         embedding=np.array(embedding, dtype=np.float32).tobytes(),
     )
@@ -100,6 +102,7 @@ def list_users(db: Session = Depends(get_db)):
             "phone": u.phone,
             "linkedin": u.linkedin,
             "occupation": u.occupation,
+            "description": u.description,
             "image_url": u.image_url,
             "registered_at": u.registered_at,
             "role": u.role,

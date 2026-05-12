@@ -5,7 +5,7 @@ import { apiFetch } from '../config'
 export default function RegisterPage() {
   const webcamRef = useRef(null)
 
-  const [form, setForm] = useState({ name: '', email: '', phone: '', linkedin: '', occupation: '' })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', linkedin: '', occupation: '', description: '' })
   const [tab, setTab] = useState('upload')
   const [preview, setPreview] = useState(null)
   const [uploadFile, setUploadFile] = useState(null)
@@ -82,7 +82,7 @@ export default function RegisterPage() {
       } else {
         const evtMsg = data.event_name ? ` for "${data.event_name}"` : ''
         showStatus('success', `${data.name} registered successfully${evtMsg}!`)
-        setForm({ name: '', email: '', phone: '', linkedin: '', occupation: '' })
+        setForm({ name: '', email: '', phone: '', linkedin: '', occupation: '', description: '' })
         setSelectedEvent('')
         setPreview(null)
         setUploadFile(null)
@@ -163,6 +163,14 @@ export default function RegisterPage() {
             <label>LinkedIn Profile URL</label>
             <input name="linkedin" placeholder="https://linkedin.com/in/yourprofile"
               value={form.linkedin} onChange={handleField} disabled={submitting} />
+          </div>
+
+          {/* Description full width */}
+          <div className="sr-field">
+            <label>Description</label>
+            <textarea name="description" placeholder="Brief bio or description…"
+              value={form.description} onChange={handleField} disabled={submitting}
+              className="sr-textarea" rows={3} />
           </div>
 
           {/* Event Name */}

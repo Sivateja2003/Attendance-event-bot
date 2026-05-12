@@ -7,7 +7,7 @@ export default function EventRegisterPage() {
   const { eventId } = useParams()
   const webcamRef = useRef(null)
 
-  const [form, setForm] = useState({ name: '', email: '', phone: '', linkedin: '', occupation: '' })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', linkedin: '', occupation: '', description: '' })
   const [tab, setTab] = useState('upload')
   const [preview, setPreview] = useState(null)
   const [uploadFile, setUploadFile] = useState(null)
@@ -77,6 +77,7 @@ export default function EventRegisterPage() {
     if (form.phone.trim()) fd.append('phone', form.phone.trim())
     if (form.linkedin.trim()) fd.append('linkedin', form.linkedin.trim())
     if (form.occupation.trim()) fd.append('occupation', form.occupation.trim())
+    if (form.description.trim()) fd.append('description', form.description.trim())
     fd.append('event_id', eventId)
     if (uploadFile) fd.append('image', uploadFile)
     else fd.append('image_base64', captured)
@@ -88,7 +89,7 @@ export default function EventRegisterPage() {
         showStatus('error', data.detail || 'Registration failed.')
       } else {
         showStatus('success', `Successfully registered for "${eventName || 'the event'}"! You're all set.`)
-        setForm({ name: '', email: '', phone: '', linkedin: '', occupation: '' })
+        setForm({ name: '', email: '', phone: '', linkedin: '', occupation: '', description: '' })
         setPreview(null)
         setUploadFile(null)
         setCaptured(null)
@@ -159,6 +160,14 @@ export default function EventRegisterPage() {
             <label>LinkedIn Profile URL</label>
             <input name="linkedin" placeholder="https://linkedin.com/in/yourprofile"
               value={form.linkedin} onChange={handleField} disabled={submitting} />
+          </div>
+
+          {/* Description */}
+          <div className="sr-field">
+            <label>Description</label>
+            <textarea name="description" placeholder="Brief bio or description…"
+              value={form.description} onChange={handleField} disabled={submitting}
+              className="sr-textarea" rows={3} />
           </div>
 
           {/* Face photo */}

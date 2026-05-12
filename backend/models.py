@@ -12,6 +12,7 @@ class User(Base):
     phone = Column(String(50))
     linkedin = Column(String(255))
     occupation = Column(String(255))
+    description = Column(String)
     image_url = Column(String)
     embedding = Column(LargeBinary)  # np.float32 bytes, 128 floats * 4 bytes = 512 bytes
     registered_at = Column(DateTime, default=datetime.utcnow)

@@ -26,6 +26,7 @@ def run_migrations():
             ("phone", "VARCHAR(50)"),
             ("linkedin", "VARCHAR(255)"),
             ("occupation", "VARCHAR(255)"),
+            ("description", "TEXT"),
         ]:
             if col not in user_cols:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {ddl}"))
