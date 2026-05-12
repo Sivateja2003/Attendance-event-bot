@@ -95,17 +95,21 @@ function PersonCard({ data }) {
 
 /* ── Single participant profile ─────────────────────────────────── */
 function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, onNext }) {
-  const [prevSnap, setPrevSnap]   = useState(null)   // { person, index } of outgoing page
+  const [prevSnap, setPrevSnap]     = useState(null)
   const [isFlipping, setIsFlipping] = useState(false)
-  const containerRef  = useRef(null)
-  const canvasRef     = useRef(null)
-  const animRef       = useRef(null)
+  const [flipDir, setFlipDir]       = useState(null)
+
+  const containerRef = useRef(null)
+  const canvasRef    = useRef(null)
+  const flatLayerRef = useRef(null)   // old page: stationary clipped half
+  const turnWrapRef  = useRef(null)   // old page: rotating half (wrapper)
+  const turnInnerRef = useRef(null)   // old page: rotating half (full-width inner)
+  const animRef      = useRef(null)
   const prevPersonRef = useRef(person)
   const prevIndexRef  = useRef(index)
   const flipDirRef    = useRef(null)
   const firstRender   = useRef(true)
 
-  /* Detect person change (driven by parent partIndex update) */
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false
@@ -117,6 +121,7 @@ function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, o
       const dir = flipDirRef.current
       flipDirRef.current = null
       setPrevSnap({ person: prevPersonRef.current, index: prevIndexRef.current })
+      setFlipDir(dir)
       setIsFlipping(true)
       startFlip(dir)
     }
@@ -133,10 +138,9 @@ function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, o
     const tick = (ts) => {
       if (!t0) t0 = ts
       const raw = Math.min((ts - t0) / DURATION, 1)
-      /* ease-in-out cubic */
-      const t = raw < 0.5 ? 4 * raw ** 3 : 1 - (-2 * raw + 2) ** 3 / 2
+      const t   = raw < 0.5 ? 4 * raw ** 3 : 1 - (-2 * raw + 2) ** 3 / 2
 
-      drawFold(t, dir)
+      updateFrame(t, dir)
 
       if (raw < 1) {
         animRef.current = requestAnimationFrame(tick)
@@ -145,106 +149,90 @@ function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, o
         if (cv) cv.getContext('2d').clearRect(0, 0, cv.width, cv.height)
         setIsFlipping(false)
         setPrevSnap(null)
+        setFlipDir(null)
       }
     }
     animRef.current = requestAnimationFrame(tick)
   }
 
-  const drawFold = (t, dir) => {
-    const cv   = canvasRef.current
+  const updateFrame = (t, dir) => {
     const root = containerRef.current
-    if (!cv || !root) return
-
+    if (!root) return
     const W = root.offsetWidth
     const H = root.offsetHeight
+
+    /* Fold line sweeps across: next = right→left, prev = left→right */
+    const foldX = dir === 'next' ? W * (1 - t) : W * t
+    /* Turning half grows from 0 to full width over the animation */
+    const turnW = dir === 'next' ? W - foldX : foldX
+    /* Rotation: 0° (flat) → 90° (edge-on, invisible) */
+    const angle = t * 90
+
+    /* ── Flat half: straight clip, no wave ── */
+    if (flatLayerRef.current) {
+      flatLayerRef.current.style.clipPath = dir === 'next'
+        ? `inset(0 ${Math.round(W - foldX)}px 0 0)`
+        : `inset(0 0 0 ${Math.round(foldX)}px)`
+    }
+
+    /* ── Turning half: CSS 3D rotation showing actual old content ── */
+    if (turnWrapRef.current) {
+      const el = turnWrapRef.current
+      if (dir === 'next') {
+        /* Pivot at left edge of wrapper = fold line; right side lifts toward viewer */
+        el.style.left            = `${foldX}px`
+        el.style.width           = `${turnW}px`
+        el.style.transformOrigin = 'left center'
+        el.style.transform       = `perspective(1200px) rotateY(${-angle}deg)`
+      } else {
+        /* Pivot at right edge of wrapper = fold line; left side lifts toward viewer */
+        el.style.left            = '0px'
+        el.style.width           = `${turnW}px`
+        el.style.transformOrigin = 'right center'
+        el.style.transform       = `perspective(1200px) rotateY(${angle}deg)`
+      }
+    }
+    if (turnInnerRef.current) {
+      /* Inner div is full page width; overflow:hidden on wrapper clips it */
+      turnInnerRef.current.style.left  = dir === 'next' ? `-${foldX}px` : '0px'
+      turnInnerRef.current.style.width = `${W}px`
+    }
+
+    /* ── Canvas: shadow ahead of fold + crease highlight only ── */
+    const cv = canvasRef.current
+    if (!cv) return
     cv.width  = W
     cv.height = H
     const ctx = cv.getContext('2d')
     ctx.clearRect(0, 0, W, H)
 
-    /* Fold line sweeps: next → right-to-left, prev → left-to-right */
-    const foldX = dir === 'next' ? W * (1 - t) : W * t
-
-    /* Paper bends most at mid-turn, straight at start/end */
-    const maxBend = W * 0.07
-    const bend    = maxBend * Math.sin(t * Math.PI)
-    const sign    = dir === 'next' ? 1 : -1
-
-    /* Control points for the fold-line bezier */
-    const cpX = foldX + sign * bend
-
-    /* ── Clip old page to the "not yet turned" side ── */
-    const oldLayer = root.querySelector('.dp-page-old')
-    if (oldLayer) {
-      if (dir === 'next') {
-        /* left of fold line */
-        oldLayer.style.clipPath =
-          `path('M 0 0 L ${foldX} 0 C ${cpX} ${H * 0.35}, ${cpX} ${H * 0.65}, ${foldX} ${H} L 0 ${H} Z')`
-      } else {
-        /* right of fold line */
-        oldLayer.style.clipPath =
-          `path('M ${foldX} 0 L ${W} 0 L ${W} ${H} L ${foldX} ${H} C ${cpX} ${H * 0.65}, ${cpX} ${H * 0.35}, ${foldX} 0 Z')`
-      }
-    }
-
-    /* ── Dark "back of page" on the turning side ── */
+    /* Shadow cast onto the newly revealed new page */
+    const shadowW = W * 0.055
     ctx.save()
-    ctx.beginPath()
-    if (dir === 'next') {
-      ctx.moveTo(foldX, 0)
-      ctx.bezierCurveTo(cpX, H * 0.35, cpX, H * 0.65, foldX, H)
-      ctx.lineTo(W, H)
-      ctx.lineTo(W, 0)
-    } else {
-      ctx.moveTo(foldX, 0)
-      ctx.bezierCurveTo(cpX, H * 0.35, cpX, H * 0.65, foldX, H)
-      ctx.lineTo(0, H)
-      ctx.lineTo(0, 0)
-    }
-    ctx.closePath()
-    const backGrad = dir === 'next'
-      ? ctx.createLinearGradient(foldX, 0, W, 0)
-      : ctx.createLinearGradient(0, 0, foldX, 0)
-    if (dir === 'next') {
-      backGrad.addColorStop(0,   'rgba(5,3,20,0.96)')
-      backGrad.addColorStop(0.5, 'rgba(8,5,28,0.75)')
-      backGrad.addColorStop(1,   'rgba(10,7,30,0.0)')
-    } else {
-      backGrad.addColorStop(0,   'rgba(10,7,30,0.0)')
-      backGrad.addColorStop(0.5, 'rgba(8,5,28,0.75)')
-      backGrad.addColorStop(1,   'rgba(5,3,20,0.96)')
-    }
-    ctx.fillStyle = backGrad
-    ctx.fill()
-    ctx.restore()
-
-    /* ── Shadow cast onto the new page ── */
-    ctx.save()
-    const shadowW = W * 0.07
     if (dir === 'next') {
       const sg = ctx.createLinearGradient(Math.max(0, foldX - shadowW), 0, foldX, 0)
       sg.addColorStop(0, 'rgba(0,0,0,0)')
-      sg.addColorStop(1, 'rgba(0,0,0,0.45)')
+      sg.addColorStop(1, 'rgba(0,0,0,0.55)')
       ctx.fillStyle = sg
       ctx.fillRect(Math.max(0, foldX - shadowW), 0, Math.min(shadowW, foldX), H)
     } else {
       const sg = ctx.createLinearGradient(foldX, 0, Math.min(W, foldX + shadowW), 0)
-      sg.addColorStop(0, 'rgba(0,0,0,0.45)')
+      sg.addColorStop(0, 'rgba(0,0,0,0.55)')
       sg.addColorStop(1, 'rgba(0,0,0,0)')
       ctx.fillStyle = sg
       ctx.fillRect(foldX, 0, Math.min(shadowW, W - foldX), H)
     }
     ctx.restore()
 
-    /* ── Bright fold crease / highlight ── */
+    /* Fold crease — sharp bright vertical line */
     ctx.save()
-    ctx.strokeStyle = 'rgba(170,155,255,0.85)'
-    ctx.lineWidth   = 2.5
-    ctx.shadowColor = 'rgba(140,120,255,0.55)'
-    ctx.shadowBlur  = 10
+    ctx.strokeStyle = 'rgba(220,210,255,0.95)'
+    ctx.lineWidth   = 1.5
+    ctx.shadowColor = 'rgba(180,160,255,0.5)'
+    ctx.shadowBlur  = 5
     ctx.beginPath()
     ctx.moveTo(foldX, 0)
-    ctx.bezierCurveTo(cpX, H * 0.35, cpX, H * 0.65, foldX, H)
+    ctx.lineTo(foldX, H)
     ctx.stroke()
     ctx.restore()
   }
@@ -298,7 +286,8 @@ function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, o
 
   return (
     <div ref={containerRef} className="dp-part-profile">
-      {/* New page — always underneath, fully visible */}
+
+      {/* z-index 1 — new page, always visible underneath */}
       <div className="dp-page-layer">
         <button className="dp-back-btn" onClick={onBack}>← Back</button>
         <div className="dp-part-counter">
@@ -312,18 +301,39 @@ function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, o
         </div>
       </div>
 
-      {/* Old page — on top during flip, clipped by the bezier fold line */}
-      {isFlipping && prevSnap && (
-        <div className="dp-page-layer dp-page-old" style={{ pointerEvents: 'none' }}>
+      {isFlipping && prevSnap && (<>
+        {/* z-index 2 — old page FLAT half: straight inset clip, no wave */}
+        <div ref={flatLayerRef} className="dp-page-layer dp-page-old" style={{ pointerEvents: 'none' }}>
           <div className="dp-part-counter">
             {prevSnap.index + 1} / {total}
             {eventName && <span className="dp-part-event-badge">◆ {eventName}</span>}
           </div>
           {renderContent(prevSnap.person, prevSnap.index)}
         </div>
-      )}
 
-      {/* Canvas — draws back-of-page, shadow, and fold crease on top of both layers */}
+        {/* z-index 3 — old page TURNING half: actual content rotating in 3D */}
+        <div
+          ref={turnWrapRef}
+          style={{
+            position: 'absolute', top: 0, height: '100%', zIndex: 3,
+            overflow: 'hidden', pointerEvents: 'none',
+            backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden',
+          }}
+        >
+          <div ref={turnInnerRef} style={{ position: 'absolute', top: 0, height: '100%', display: 'flex' }}>
+            {renderContent(prevSnap.person, prevSnap.index)}
+          </div>
+          {/* Darkness gradient: far edge of turning page is most in shadow (page curves away) */}
+          <div style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none',
+            background: flipDir === 'next'
+              ? 'linear-gradient(to right, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.65) 100%)'
+              : 'linear-gradient(to left,  rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.65) 100%)',
+          }} />
+        </div>
+      </>)}
+
+      {/* z-index 4 — canvas: shadow on new page + crease line only */}
       {isFlipping && <canvas ref={canvasRef} className="dp-flip-canvas" />}
     </div>
   )
