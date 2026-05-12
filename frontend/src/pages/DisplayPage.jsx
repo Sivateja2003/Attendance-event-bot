@@ -93,8 +93,177 @@ function PersonCard({ data }) {
   )
 }
 
+/* ── Client-side participant search ────────────────────────────── */
+const SYNONYMS = {
+  ai:         ['artificial intelligence', 'machine learning', 'deep learning', 'neural', 'nlp', 'llm', 'generative'],
+  ml:         ['machine learning', 'data science', 'deep learning', 'artificial intelligence', 'neural'],
+  cyber:      ['security', 'cybersecurity', 'infosec', 'penetration', 'ethical hacking', 'soc', 'vulnerability'],
+  security:   ['cybersecurity', 'infosec', 'penetration testing', 'ethical hacking', 'firewall', 'soc'],
+  data:       ['analytics', 'analysis', 'scientist', 'engineer', 'warehouse', 'pipeline', 'bi', 'intelligence'],
+  devops:     ['sre', 'platform', 'infrastructure', 'cloud', 'kubernetes', 'docker', 'reliability'],
+  cloud:      ['aws', 'azure', 'gcp', 'infrastructure', 'devops', 'terraform', 'serverless'],
+  frontend:   ['react', 'vue', 'angular', 'ui', 'ux', 'web', 'javascript', 'typescript', 'css'],
+  backend:    ['api', 'server', 'node', 'python', 'java', 'golang', 'microservices', 'django', 'spring'],
+  fullstack:  ['full stack', 'fullstack', 'mern', 'mean', 'frontend', 'backend'],
+  mobile:     ['ios', 'android', 'flutter', 'react native', 'swift', 'kotlin', 'app'],
+  product:    ['product manager', 'product owner', 'pm', 'agile', 'scrum', 'roadmap'],
+  design:     ['ux', 'ui', 'figma', 'user experience', 'user interface', 'designer', 'creative'],
+  blockchain: ['web3', 'crypto', 'ethereum', 'solidity', 'nft', 'defi', 'smart contract'],
+  research:   ['phd', 'scientist', 'researcher', 'academic', 'lab', 'publication'],
+  manager:    ['lead', 'head', 'director', 'vp', 'chief', 'cto', 'ceo', 'engineering manager'],
+  embedded:   ['firmware', 'iot', 'rtos', 'hardware', 'microcontroller', 'arduino', 'raspberry'],
+  game:       ['unity', 'unreal', 'game developer', 'gamedev', '3d', 'graphics'],
+}
+
+function _norm(t) { return t.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').trim() }
+
+function _expandTokens(query) {
+  const tokens = new Set(_norm(query).split(/\s+/).filter(Boolean))
+  for (const tok of [...tokens]) {
+    const syns = SYNONYMS[tok] || []
+    for (const s of syns) _norm(s).split(/\s+/).filter(Boolean).forEach(w => tokens.add(w))
+  }
+  return tokens
+}
+
+function _scoreParticipant(p, query, tokens) {
+  const fields = []
+  if (p.occupation) fields.push({ text: _norm(p.occupation), w: 4, label: p.occupation })
+  if (p.linkedin) {
+    const parts = p.linkedin.replace(/\/$/, '').split('/')
+    const i = parts.indexOf('in')
+    if (i >= 0 && i + 1 < parts.length) {
+      const handle = _norm(parts[i + 1].replace(/-/g, ' '))
+      if (handle) fields.push({ text: handle, w: 3, label: 'LinkedIn profile' })
+    }
+  }
+  if (p.email?.includes('@')) {
+    fields.push({ text: _norm(p.email.split('@')[1].split('.')[0]), w: 1, label: 'email domain' })
+  }
+
+  let score = 0
+  const hits = new Set()
+  for (const tok of tokens) {
+    for (const f of fields) {
+      if (f.text.includes(tok) && !hits.has(f.label)) { score += f.w; hits.add(f.label) }
+    }
+  }
+  // exact phrase bonus
+  const qn = _norm(query)
+  if (fields.some(f => f.text.includes(qn))) score += 3
+
+  const max = tokens.size * 4 + 3
+  const pct = max > 0 ? Math.min(100, Math.round((score / max) * 150)) : 0
+
+  let reason = ''
+  if (hits.size > 0) {
+    const [first, ...rest] = [...hits]
+    reason = first === 'LinkedIn profile' ? 'Found in LinkedIn profile keywords'
+           : first === 'email domain'     ? 'Matched via email domain'
+           : `Occupation: ${first}`
+    if (rest.length) reason += ` · ${rest.length} more signal${rest.length > 1 ? 's' : ''}`
+  }
+  return { score: pct, reason }
+}
+
+function searchLocally(participants, query) {
+  if (!query.trim()) return []
+  const tokens = _expandTokens(query)
+  return participants
+    .map(p => { const { score, reason } = _scoreParticipant(p, query, tokens); return { ...p, score, reason } })
+    .filter(p => p.score > 0)
+    .sort((a, b) => b.score - a.score)
+}
+
+function ParticipantSearch({ participants, onClose, onSelect }) {
+  const [query, setQuery]   = useState('')
+  const [results, setResults] = useState([])
+  const inputRef  = useRef(null)
+  const timerRef  = useRef(null)
+
+  useEffect(() => { inputRef.current?.focus() }, [])
+
+  const runSearch = (q) => {
+    setResults(searchLocally(participants, q))
+  }
+
+  const handleInput = (e) => {
+    const val = e.target.value
+    setQuery(val)
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => runSearch(val), 120)
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') onClose()
+  }
+
+  const HINTS = ['Cyber Security', 'Data Scientist', 'AI Engineer', 'Product Manager', 'Full Stack Developer', 'DevOps', 'Mobile Developer', 'Designer']
+
+  return (
+    <div className="dp-search-overlay">
+      <div className="dp-search-header">
+        <button className="dp-search-back" onClick={onClose}>← Back</button>
+        <div className="dp-search-input-wrap">
+          <span className="dp-search-icon-prefix">🔍</span>
+          <input
+            ref={inputRef}
+            className="dp-search-input"
+            placeholder="Search by role, skill or field…"
+            value={query}
+            onChange={handleInput}
+            onKeyDown={handleKeyDown}
+            autoComplete="off"
+            spellCheck="false"
+          />
+          {query && (
+            <button className="dp-search-clear"
+              onClick={() => { setQuery(''); setResults([]); inputRef.current?.focus() }}>✕</button>
+          )}
+        </div>
+      </div>
+
+      <div className="dp-search-body">
+        {!query && (
+          <div className="dp-search-hints">
+            <div className="dp-search-hints-label">Try searching for:</div>
+            <div className="dp-search-hint-chips">
+              {HINTS.map(h => (
+                <button key={h} className="dp-search-hint-chip"
+                  onClick={() => { setQuery(h); runSearch(h) }}>{h}</button>
+              ))}
+            </div>
+          </div>
+        )}
+        {query && results.length === 0 && (
+          <div className="dp-search-state">No participants found for "<strong>{query}</strong>"</div>
+        )}
+        {results.length > 0 && (
+          <div className="dp-search-results">
+            <div className="dp-search-count">{results.length} match{results.length !== 1 ? 'es' : ''} found</div>
+            {results.map(p => (
+              <div key={p.id} className="dp-search-card" onClick={() => onSelect(p)}>
+                <UserAvatar src={p.image_url} name={p.name}
+                  imgClass="dp-search-photo" fallbackClass="dp-search-avatar" apiBase={API_BASE}>
+                  {p.name?.[0]?.toUpperCase()}
+                </UserAvatar>
+                <div className="dp-search-card-body">
+                  <div className="dp-search-card-name">{p.name}</div>
+                  {p.occupation && <div className="dp-search-card-occ">{p.occupation}</div>}
+                  {p.reason && <div className="dp-search-card-reason">✦ {p.reason}</div>}
+                </div>
+                <div className="dp-search-card-score">{p.score}%</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /* ── Single participant profile ─────────────────────────────────── */
-function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, onNext }) {
+function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, onNext, onSearch }) {
   const [prevSnap, setPrevSnap]     = useState(null)
   const [isFlipping, setIsFlipping] = useState(false)
   const [flipDir, setFlipDir]       = useState(null)
@@ -297,6 +466,7 @@ function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, o
         {person && renderContent(person, index)}
         <div className="dp-part-nav">
           <button className="dp-part-nav-btn" onClick={handlePrevClick} disabled={index === 0 || isFlipping}>← Previous</button>
+          <button className="dp-part-nav-btn dp-part-nav-btn--search" onClick={onSearch}>🔍 Search</button>
           <button className="dp-part-nav-btn" onClick={handleNextClick} disabled={index >= total - 1 || isFlipping}>Next →</button>
         </div>
       </div>
@@ -402,6 +572,7 @@ export default function DisplayPage() {
   const [participants, setParticipants] = useState([])
   const [partIndex, setPartIndex]       = useState(0)
   const [partLoading, setPartLoading]   = useState(false)
+  const [searchOpen, setSearchOpen]     = useState(false)
   const [popup, setPopup]               = useState(null)
 
   const touchStartX    = useRef(0)
@@ -623,6 +794,19 @@ export default function DisplayPage() {
                   onBack={() => setView('main')}
                   onPrev={() => { if (partIndex > 0) setPartIndex(i => i - 1); else setView('main') }}
                   onNext={() => { if (partIndex < participants.length - 1) setPartIndex(i => i + 1) }}
+                  onSearch={() => setSearchOpen(true)}
+                />
+              )}
+
+              {searchOpen && (
+                <ParticipantSearch
+                  participants={participants}
+                  onClose={() => setSearchOpen(false)}
+                  onSelect={(p) => {
+                    const idx = participants.findIndex(x => x.id === p.id)
+                    if (idx >= 0) setPartIndex(idx)
+                    setSearchOpen(false)
+                  }}
                 />
               )}
 
