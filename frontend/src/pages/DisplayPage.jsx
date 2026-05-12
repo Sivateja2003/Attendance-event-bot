@@ -94,9 +94,30 @@ function PersonCard({ data }) {
 }
 
 /* ── Single participant profile ─────────────────────────────────── */
-function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, onNext }) {
+function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, onNext, flipDir }) {
+  const [exitDir, setExitDir] = useState(null)
+
+  const handlePrevClick = () => {
+    if (exitDir) return
+    if (index === 0) { onBack(); return }
+    setExitDir('prev')
+    setTimeout(() => onPrev(), 270)
+  }
+
+  const handleNextClick = () => {
+    if (exitDir || index >= total - 1) return
+    setExitDir('next')
+    setTimeout(() => onNext(), 270)
+  }
+
+  const animClass = exitDir
+    ? `dp-part--exit-${exitDir}`
+    : flipDir
+      ? `dp-part--enter-${flipDir}`
+      : ''
+
   return (
-    <div className="dp-part-profile" key={`${person.id}-${index}`}>
+    <div className={`dp-part-profile${animClass ? ` ${animClass}` : ''}`}>
       <button className="dp-back-btn" onClick={onBack}>← Back</button>
 
       <div className="dp-part-counter">
@@ -166,10 +187,10 @@ function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, o
       </div>
 
       <div className="dp-part-nav">
-        <button className="dp-part-nav-btn" onClick={onPrev} disabled={index === 0}>
+        <button className="dp-part-nav-btn" onClick={handlePrevClick} disabled={index === 0 || !!exitDir}>
           ← Previous
         </button>
-        <button className="dp-part-nav-btn" onClick={onNext} disabled={index >= total - 1}>
+        <button className="dp-part-nav-btn" onClick={handleNextClick} disabled={index >= total - 1 || !!exitDir}>
           Next →
         </button>
       </div>
@@ -240,6 +261,7 @@ export default function DisplayPage() {
   const [participants, setParticipants] = useState([])
   const [partIndex, setPartIndex]       = useState(0)
   const [partLoading, setPartLoading]   = useState(false)
+  const [flipDir, setFlipDir]           = useState(null)  // 'next' | 'prev' | null
   const [popup, setPopup]               = useState(null)
 
   const touchStartX    = useRef(0)
@@ -308,6 +330,11 @@ export default function DisplayPage() {
     if (participants.length > 0 && partIndex >= participants.length)
       setPartIndex(participants.length - 1)
   }, [participants, partIndex])
+
+  /* ── Reset flip direction when leaving profiles ── */
+  useEffect(() => {
+    if (view !== 'profiles') setFlipDir(null)
+  }, [view])
 
   /* ── WebSocket ── */
   useEffect(() => {
@@ -386,10 +413,10 @@ export default function DisplayPage() {
     }
     if (view === 'profiles') {
       if (dx > 0) {
-        if (partIndex > 0) setPartIndex(i => i - 1)
+        if (partIndex > 0) { setFlipDir('prev'); setPartIndex(i => i - 1) }
         else setView('main')
       } else {
-        if (partIndex < participants.length - 1) setPartIndex(i => i + 1)
+        if (partIndex < participants.length - 1) { setFlipDir('next'); setPartIndex(i => i + 1) }
       }
     }
   }
@@ -458,9 +485,10 @@ export default function DisplayPage() {
                   index={partIndex}
                   total={participants.length}
                   eventName={eventName}
+                  flipDir={flipDir}
                   onBack={() => setView('main')}
-                  onPrev={() => partIndex > 0 ? setPartIndex(i => i - 1) : setView('main')}
-                  onNext={() => partIndex < participants.length - 1 && setPartIndex(i => i + 1)}
+                  onPrev={() => { if (partIndex > 0) { setFlipDir('prev'); setPartIndex(i => i - 1) } else setView('main') }}
+                  onNext={() => { if (partIndex < participants.length - 1) { setFlipDir('next'); setPartIndex(i => i + 1) } }}
                 />
               )}
 
