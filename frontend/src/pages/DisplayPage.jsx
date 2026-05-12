@@ -93,135 +93,8 @@ function PersonCard({ data }) {
   )
 }
 
-/* ── Participant AI search overlay ─────────────────────────────── */
-function ParticipantSearch({ eventId, onClose, onSelect }) {
-  const [query, setQuery]     = useState('')
-  const [results, setResults] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [searched, setSearched] = useState(false)
-  const [error, setError]     = useState(null)
-  const inputRef   = useRef(null)
-  const debounceRef = useRef(null)
-
-  useEffect(() => { inputRef.current?.focus() }, [])
-
-  const runSearch = async (q) => {
-    if (!q.trim()) { setResults([]); setSearched(false); return }
-    setLoading(true)
-    setError(null)
-    setSearched(true)
-    try {
-      const params = new URLSearchParams({ q: q.trim() })
-      if (eventId) params.append('event_id', eventId)
-      const data = await apiFetch(`/api/attendance/search?${params}`).then(r => r.json())
-      setResults(data.results || [])
-    } catch {
-      setError('Search failed. Please try again.')
-      setResults([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleInput = (e) => {
-    const val = e.target.value
-    setQuery(val)
-    clearTimeout(debounceRef.current)
-    if (!val.trim()) { setResults([]); setSearched(false); return }
-    debounceRef.current = setTimeout(() => runSearch(val), 650)
-  }
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') { clearTimeout(debounceRef.current); runSearch(query) }
-    if (e.key === 'Escape') onClose()
-  }
-
-  const HINTS = ['Cyber Security', 'Data Scientist', 'AI Engineer', 'Product Manager', 'Full Stack Developer', 'DevOps']
-
-  return (
-    <div className="dp-search-overlay">
-      <div className="dp-search-header">
-        <button className="dp-search-back" onClick={onClose}>← Back</button>
-        <div className="dp-search-input-wrap">
-          <span className="dp-search-icon-prefix">🔍</span>
-          <input
-            ref={inputRef}
-            className="dp-search-input"
-            placeholder="Search by role, skill or field…"
-            value={query}
-            onChange={handleInput}
-            onKeyDown={handleKeyDown}
-            autoComplete="off"
-            spellCheck="false"
-          />
-          {query && (
-            <button
-              className="dp-search-clear"
-              onClick={() => { setQuery(''); setResults([]); setSearched(false); inputRef.current?.focus() }}
-            >✕</button>
-          )}
-        </div>
-      </div>
-
-      <div className="dp-search-body">
-        {loading && (
-          <div className="dp-search-state">
-            <div className="dp-search-spinner" />
-            <span>Searching with AI…</span>
-          </div>
-        )}
-        {!loading && error && (
-          <div className="dp-search-state dp-search-state--error">{error}</div>
-        )}
-        {!loading && !error && searched && results.length === 0 && (
-          <div className="dp-search-state">
-            No participants found for "<strong>{query}</strong>"
-          </div>
-        )}
-        {!loading && !searched && (
-          <div className="dp-search-hints">
-            <div className="dp-search-hints-label">Try searching for:</div>
-            <div className="dp-search-hint-chips">
-              {HINTS.map(h => (
-                <button key={h} className="dp-search-hint-chip"
-                  onClick={() => { setQuery(h); runSearch(h) }}>
-                  {h}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {!loading && results.length > 0 && (
-          <div className="dp-search-results">
-            <div className="dp-search-count">
-              {results.length} match{results.length !== 1 ? 'es' : ''} found
-            </div>
-            {results.map(p => (
-              <div key={p.id} className="dp-search-card" onClick={() => onSelect(p)}>
-                <UserAvatar
-                  src={p.image_url} name={p.name}
-                  imgClass="dp-search-photo" fallbackClass="dp-search-avatar"
-                  apiBase={API_BASE}
-                >
-                  {p.name?.[0]?.toUpperCase()}
-                </UserAvatar>
-                <div className="dp-search-card-body">
-                  <div className="dp-search-card-name">{p.name}</div>
-                  {p.occupation && <div className="dp-search-card-occ">{p.occupation}</div>}
-                  <div className="dp-search-card-reason">✦ {p.reason}</div>
-                </div>
-                <div className="dp-search-card-score">{p.score}%</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 /* ── Single participant profile ─────────────────────────────────── */
-function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, onNext, onSearch }) {
+function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, onNext }) {
   const [prevSnap, setPrevSnap]     = useState(null)
   const [isFlipping, setIsFlipping] = useState(false)
   const [flipDir, setFlipDir]       = useState(null)
@@ -424,7 +297,6 @@ function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, o
         {person && renderContent(person, index)}
         <div className="dp-part-nav">
           <button className="dp-part-nav-btn" onClick={handlePrevClick} disabled={index === 0 || isFlipping}>← Previous</button>
-          <button className="dp-part-nav-btn dp-part-nav-btn--search" onClick={onSearch}>🔍 Search</button>
           <button className="dp-part-nav-btn" onClick={handleNextClick} disabled={index >= total - 1 || isFlipping}>Next →</button>
         </div>
       </div>
@@ -530,7 +402,6 @@ export default function DisplayPage() {
   const [participants, setParticipants] = useState([])
   const [partIndex, setPartIndex]       = useState(0)
   const [partLoading, setPartLoading]   = useState(false)
-  const [searchOpen, setSearchOpen]     = useState(false)
   const [popup, setPopup]               = useState(null)
 
   const touchStartX    = useRef(0)
@@ -752,19 +623,6 @@ export default function DisplayPage() {
                   onBack={() => setView('main')}
                   onPrev={() => { if (partIndex > 0) setPartIndex(i => i - 1); else setView('main') }}
                   onNext={() => { if (partIndex < participants.length - 1) setPartIndex(i => i + 1) }}
-                  onSearch={() => setSearchOpen(true)}
-                />
-              )}
-
-              {searchOpen && (
-                <ParticipantSearch
-                  eventId={numericEventId}
-                  onClose={() => setSearchOpen(false)}
-                  onSelect={(p) => {
-                    const idx = participants.findIndex(x => x.id === p.id)
-                    if (idx >= 0) setPartIndex(idx)
-                    setSearchOpen(false)
-                  }}
                 />
               )}
 
