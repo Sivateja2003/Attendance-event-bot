@@ -94,106 +94,237 @@ function PersonCard({ data }) {
 }
 
 /* ── Single participant profile ─────────────────────────────────── */
-function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, onNext, flipDir }) {
-  const [exitDir, setExitDir] = useState(null)
+function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, onNext }) {
+  const [prevSnap, setPrevSnap]   = useState(null)   // { person, index } of outgoing page
+  const [isFlipping, setIsFlipping] = useState(false)
+  const containerRef  = useRef(null)
+  const canvasRef     = useRef(null)
+  const animRef       = useRef(null)
+  const prevPersonRef = useRef(person)
+  const prevIndexRef  = useRef(index)
+  const flipDirRef    = useRef(null)
+  const firstRender   = useRef(true)
 
-  const handlePrevClick = () => {
-    if (exitDir) return
-    if (index === 0) { onBack(); return }
-    setExitDir('prev')
-    setTimeout(() => onPrev(), 270)
+  /* Detect person change (driven by parent partIndex update) */
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false
+      prevPersonRef.current = person
+      prevIndexRef.current  = index
+      return
+    }
+    if (prevIndexRef.current !== index && flipDirRef.current) {
+      const dir = flipDirRef.current
+      flipDirRef.current = null
+      setPrevSnap({ person: prevPersonRef.current, index: prevIndexRef.current })
+      setIsFlipping(true)
+      startFlip(dir)
+    }
+    prevPersonRef.current = person
+    prevIndexRef.current  = index
+  }, [person, index])
+
+  useEffect(() => () => { if (animRef.current) cancelAnimationFrame(animRef.current) }, [])
+
+  const startFlip = (dir) => {
+    let t0 = null
+    const DURATION = 600
+
+    const tick = (ts) => {
+      if (!t0) t0 = ts
+      const raw = Math.min((ts - t0) / DURATION, 1)
+      /* ease-in-out cubic */
+      const t = raw < 0.5 ? 4 * raw ** 3 : 1 - (-2 * raw + 2) ** 3 / 2
+
+      drawFold(t, dir)
+
+      if (raw < 1) {
+        animRef.current = requestAnimationFrame(tick)
+      } else {
+        const cv = canvasRef.current
+        if (cv) cv.getContext('2d').clearRect(0, 0, cv.width, cv.height)
+        setIsFlipping(false)
+        setPrevSnap(null)
+      }
+    }
+    animRef.current = requestAnimationFrame(tick)
+  }
+
+  const drawFold = (t, dir) => {
+    const cv   = canvasRef.current
+    const root = containerRef.current
+    if (!cv || !root) return
+
+    const W = root.offsetWidth
+    const H = root.offsetHeight
+    cv.width  = W
+    cv.height = H
+    const ctx = cv.getContext('2d')
+    ctx.clearRect(0, 0, W, H)
+
+    /* Fold line sweeps: next → right-to-left, prev → left-to-right */
+    const foldX = dir === 'next' ? W * (1 - t) : W * t
+
+    /* Paper bends most at mid-turn, straight at start/end */
+    const maxBend = W * 0.07
+    const bend    = maxBend * Math.sin(t * Math.PI)
+    const sign    = dir === 'next' ? 1 : -1
+
+    /* Control points for the fold-line bezier */
+    const cpX = foldX + sign * bend
+
+    /* ── Clip old page to the "not yet turned" side ── */
+    const oldLayer = root.querySelector('.dp-page-old')
+    if (oldLayer) {
+      if (dir === 'next') {
+        /* left of fold line */
+        oldLayer.style.clipPath =
+          `path('M 0 0 L ${foldX} 0 C ${cpX} ${H * 0.35}, ${cpX} ${H * 0.65}, ${foldX} ${H} L 0 ${H} Z')`
+      } else {
+        /* right of fold line */
+        oldLayer.style.clipPath =
+          `path('M ${foldX} 0 L ${W} 0 L ${W} ${H} L ${foldX} ${H} C ${cpX} ${H * 0.65}, ${cpX} ${H * 0.35}, ${foldX} 0 Z')`
+      }
+    }
+
+    /* ── Dark "back of page" on the turning side ── */
+    ctx.save()
+    ctx.beginPath()
+    if (dir === 'next') {
+      ctx.moveTo(foldX, 0)
+      ctx.bezierCurveTo(cpX, H * 0.35, cpX, H * 0.65, foldX, H)
+      ctx.lineTo(W, H)
+      ctx.lineTo(W, 0)
+    } else {
+      ctx.moveTo(foldX, 0)
+      ctx.bezierCurveTo(cpX, H * 0.35, cpX, H * 0.65, foldX, H)
+      ctx.lineTo(0, H)
+      ctx.lineTo(0, 0)
+    }
+    ctx.closePath()
+    const backGrad = dir === 'next'
+      ? ctx.createLinearGradient(foldX, 0, W, 0)
+      : ctx.createLinearGradient(0, 0, foldX, 0)
+    if (dir === 'next') {
+      backGrad.addColorStop(0,   'rgba(5,3,20,0.96)')
+      backGrad.addColorStop(0.5, 'rgba(8,5,28,0.75)')
+      backGrad.addColorStop(1,   'rgba(10,7,30,0.0)')
+    } else {
+      backGrad.addColorStop(0,   'rgba(10,7,30,0.0)')
+      backGrad.addColorStop(0.5, 'rgba(8,5,28,0.75)')
+      backGrad.addColorStop(1,   'rgba(5,3,20,0.96)')
+    }
+    ctx.fillStyle = backGrad
+    ctx.fill()
+    ctx.restore()
+
+    /* ── Shadow cast onto the new page ── */
+    ctx.save()
+    const shadowW = W * 0.07
+    if (dir === 'next') {
+      const sg = ctx.createLinearGradient(Math.max(0, foldX - shadowW), 0, foldX, 0)
+      sg.addColorStop(0, 'rgba(0,0,0,0)')
+      sg.addColorStop(1, 'rgba(0,0,0,0.45)')
+      ctx.fillStyle = sg
+      ctx.fillRect(Math.max(0, foldX - shadowW), 0, Math.min(shadowW, foldX), H)
+    } else {
+      const sg = ctx.createLinearGradient(foldX, 0, Math.min(W, foldX + shadowW), 0)
+      sg.addColorStop(0, 'rgba(0,0,0,0.45)')
+      sg.addColorStop(1, 'rgba(0,0,0,0)')
+      ctx.fillStyle = sg
+      ctx.fillRect(foldX, 0, Math.min(shadowW, W - foldX), H)
+    }
+    ctx.restore()
+
+    /* ── Bright fold crease / highlight ── */
+    ctx.save()
+    ctx.strokeStyle = 'rgba(170,155,255,0.85)'
+    ctx.lineWidth   = 2.5
+    ctx.shadowColor = 'rgba(140,120,255,0.55)'
+    ctx.shadowBlur  = 10
+    ctx.beginPath()
+    ctx.moveTo(foldX, 0)
+    ctx.bezierCurveTo(cpX, H * 0.35, cpX, H * 0.65, foldX, H)
+    ctx.stroke()
+    ctx.restore()
   }
 
   const handleNextClick = () => {
-    if (exitDir || index >= total - 1) return
-    setExitDir('next')
-    setTimeout(() => onNext(), 270)
+    if (isFlipping || index >= total - 1) return
+    flipDirRef.current = 'next'
+    onNext()
   }
 
-  const animClass = exitDir
-    ? `dp-part--exit-${exitDir}`
-    : flipDir
-      ? `dp-part--enter-${flipDir}`
-      : ''
+  const handlePrevClick = () => {
+    if (isFlipping) return
+    if (index === 0) { onBack(); return }
+    flipDirRef.current = 'prev'
+    onPrev()
+  }
 
-  return (
-    <div className={`dp-part-profile${animClass ? ` ${animClass}` : ''}`}>
-      <button className="dp-back-btn" onClick={onBack}>← Back</button>
-
-      <div className="dp-part-counter">
-        {index + 1} / {total}
-        {eventName && <span className="dp-part-event-badge">◆ {eventName}</span>}
-      </div>
-
+  const renderContent = (p, i) => (
+    <>
       <div className="dp-part-photo-side">
-        <UserAvatar
-          src={person.image_url}
-          name={person.name}
-          imgClass="dp-part-big-photo"
-          fallbackClass="dp-part-big-avatar"
-          apiBase={API_BASE}
-        >
-          {person.name?.[0]?.toUpperCase()}
+        <UserAvatar src={p.image_url} name={p.name} imgClass="dp-part-big-photo" fallbackClass="dp-part-big-avatar" apiBase={API_BASE}>
+          {p.name?.[0]?.toUpperCase()}
         </UserAvatar>
       </div>
-
       <div className="dp-part-info-side">
-        <div className="dp-part-profile-name">{person.name}</div>
-        <div className="dp-badge dp-badge--present" style={{ alignSelf: 'flex-start', marginBottom: 6 }}>
-          ✓ Checked In
-        </div>
-        {person.occupation && (
-          <div className="dp-part-profile-occupation">{person.occupation}</div>
-        )}
+        <div className="dp-part-profile-name">{p.name}</div>
+        <div className="dp-badge dp-badge--present" style={{ alignSelf: 'flex-start', marginBottom: 6 }}>✓ Checked In</div>
+        {p.occupation && <div className="dp-part-profile-occupation">{p.occupation}</div>}
         <div className="dp-part-profile-details">
-          {person.email && (
-            <div className="dp-part-profile-row">
-              <span className="dp-part-profile-icon">✉</span>
-              <span>{person.email}</span>
-            </div>
-          )}
-          {person.phone && (
-            <div className="dp-part-profile-row">
-              <span className="dp-part-profile-icon">📞</span>
-              <span>{person.phone}</span>
-            </div>
-          )}
-          {person.linkedin && (
-            <div className="dp-part-profile-row">
-              <span className="dp-part-profile-icon">🔗</span>
-              <span style={{ wordBreak: 'break-all' }}>{person.linkedin}</span>
-            </div>
-          )}
-          {person.checked_in_at && (
+          {p.email    && <div className="dp-part-profile-row"><span className="dp-part-profile-icon">✉</span><span>{p.email}</span></div>}
+          {p.phone    && <div className="dp-part-profile-row"><span className="dp-part-profile-icon">📞</span><span>{p.phone}</span></div>}
+          {p.linkedin && <div className="dp-part-profile-row"><span className="dp-part-profile-icon">🔗</span><span style={{ wordBreak: 'break-all' }}>{p.linkedin}</span></div>}
+          {p.checked_in_at && (
             <div className="dp-part-profile-row">
               <span className="dp-part-profile-icon">🕐</span>
-              <span>
-                {new Date(person.checked_in_at + 'Z').toLocaleTimeString([], {
-                  hour: '2-digit', minute: '2-digit',
-                })}
-              </span>
+              <span>{new Date(p.checked_in_at + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
             </div>
           )}
         </div>
-
         {total > 1 && (
           <div className="dp-part-dots">
-            {Array.from({ length: Math.min(total, 12) }).map((_, i) => (
-              <div key={i} className={`dp-part-dot ${i === index % 12 ? 'active' : ''}`} />
+            {Array.from({ length: Math.min(total, 12) }).map((_, idx) => (
+              <div key={idx} className={`dp-part-dot ${idx === i % 12 ? 'active' : ''}`} />
             ))}
             {total > 12 && <span className="dp-part-dots-more">+{total - 12}</span>}
           </div>
         )}
       </div>
+    </>
+  )
 
-      <div className="dp-part-nav">
-        <button className="dp-part-nav-btn" onClick={handlePrevClick} disabled={index === 0 || !!exitDir}>
-          ← Previous
-        </button>
-        <button className="dp-part-nav-btn" onClick={handleNextClick} disabled={index >= total - 1 || !!exitDir}>
-          Next →
-        </button>
+  return (
+    <div ref={containerRef} className="dp-part-profile">
+      {/* New page — always underneath, fully visible */}
+      <div className="dp-page-layer">
+        <button className="dp-back-btn" onClick={onBack}>← Back</button>
+        <div className="dp-part-counter">
+          {index + 1} / {total}
+          {eventName && <span className="dp-part-event-badge">◆ {eventName}</span>}
+        </div>
+        {person && renderContent(person, index)}
+        <div className="dp-part-nav">
+          <button className="dp-part-nav-btn" onClick={handlePrevClick} disabled={index === 0 || isFlipping}>← Previous</button>
+          <button className="dp-part-nav-btn" onClick={handleNextClick} disabled={index >= total - 1 || isFlipping}>Next →</button>
+        </div>
       </div>
+
+      {/* Old page — on top during flip, clipped by the bezier fold line */}
+      {isFlipping && prevSnap && (
+        <div className="dp-page-layer dp-page-old" style={{ pointerEvents: 'none' }}>
+          <div className="dp-part-counter">
+            {prevSnap.index + 1} / {total}
+            {eventName && <span className="dp-part-event-badge">◆ {eventName}</span>}
+          </div>
+          {renderContent(prevSnap.person, prevSnap.index)}
+        </div>
+      )}
+
+      {/* Canvas — draws back-of-page, shadow, and fold crease on top of both layers */}
+      {isFlipping && <canvas ref={canvasRef} className="dp-flip-canvas" />}
     </div>
   )
 }
@@ -261,7 +392,6 @@ export default function DisplayPage() {
   const [participants, setParticipants] = useState([])
   const [partIndex, setPartIndex]       = useState(0)
   const [partLoading, setPartLoading]   = useState(false)
-  const [flipDir, setFlipDir]           = useState(null)  // 'next' | 'prev' | null
   const [popup, setPopup]               = useState(null)
 
   const touchStartX    = useRef(0)
@@ -331,10 +461,6 @@ export default function DisplayPage() {
       setPartIndex(participants.length - 1)
   }, [participants, partIndex])
 
-  /* ── Reset flip direction when leaving profiles ── */
-  useEffect(() => {
-    if (view !== 'profiles') setFlipDir(null)
-  }, [view])
 
   /* ── WebSocket ── */
   useEffect(() => {
@@ -413,10 +539,10 @@ export default function DisplayPage() {
     }
     if (view === 'profiles') {
       if (dx > 0) {
-        if (partIndex > 0) { setFlipDir('prev'); setPartIndex(i => i - 1) }
+        if (partIndex > 0) setPartIndex(i => i - 1)
         else setView('main')
       } else {
-        if (partIndex < participants.length - 1) { setFlipDir('next'); setPartIndex(i => i + 1) }
+        if (partIndex < participants.length - 1) setPartIndex(i => i + 1)
       }
     }
   }
@@ -480,15 +606,13 @@ export default function DisplayPage() {
                 </div>
               ) : (
                 <ParticipantProfile
-                  key={partIndex}
                   person={participants[partIndex]}
                   index={partIndex}
                   total={participants.length}
                   eventName={eventName}
-                  flipDir={flipDir}
                   onBack={() => setView('main')}
-                  onPrev={() => { if (partIndex > 0) { setFlipDir('prev'); setPartIndex(i => i - 1) } else setView('main') }}
-                  onNext={() => { if (partIndex < participants.length - 1) { setFlipDir('next'); setPartIndex(i => i + 1) } }}
+                  onPrev={() => { if (partIndex > 0) setPartIndex(i => i - 1); else setView('main') }}
+                  onNext={() => { if (partIndex < participants.length - 1) setPartIndex(i => i + 1) }}
                 />
               )}
 
