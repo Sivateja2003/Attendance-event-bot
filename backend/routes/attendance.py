@@ -204,7 +204,7 @@ def present_attendees(
             pass
 
     query = """
-        SELECT u.id, u.name, u.email, u.phone, u.linkedin, u.occupation,
+        SELECT u.id, u.name, u.email, u.phone, u.linkedin, u.occupation, u.description,
                u.image_url, a.timestamp, e.name AS event_name
         FROM attendance a
         JOIN users u ON u.id = a.user_id
@@ -228,6 +228,7 @@ def present_attendees(
             "phone": r.phone,
             "linkedin": r.linkedin,
             "occupation": r.occupation,
+            "description": r.description,
             "image_url": r.image_url,
             "checked_in_at": r.timestamp,
             "event_name": r.event_name,

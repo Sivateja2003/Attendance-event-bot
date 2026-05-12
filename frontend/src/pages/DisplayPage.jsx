@@ -129,6 +129,7 @@ function _expandTokens(query) {
 function _scoreParticipant(p, query, tokens) {
   const fields = []
   if (p.occupation) fields.push({ text: _norm(p.occupation), w: 4, label: p.occupation })
+  if (p.description) fields.push({ text: _norm(p.description), w: 3, label: 'description' })
   if (p.linkedin) {
     const parts = p.linkedin.replace(/\/$/, '').split('/')
     const i = parts.indexOf('in')
@@ -160,6 +161,7 @@ function _scoreParticipant(p, query, tokens) {
     const [first, ...rest] = [...hits]
     reason = first === 'LinkedIn profile' ? 'Found in LinkedIn profile keywords'
            : first === 'email domain'     ? 'Matched via email domain'
+           : first === 'description'      ? 'Matched in personal description'
            : `Occupation: ${first}`
     if (rest.length) reason += ` · ${rest.length} more signal${rest.length > 1 ? 's' : ''}`
   }
