@@ -18,6 +18,9 @@ numpy
 python-jose[cryptography]==3.3.0
 bcrypt==4.0.1
 
+# AI search
+anthropic>=0.40.0
+
 # Utilities
 python-dotenv==1.0.1
 Pillow>=11.0.0

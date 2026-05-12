@@ -32,6 +32,8 @@ services:
         value: "0.72"
       - key: LIVENESS_CHECK
         value: "False"
+      - key: ANTHROPIC_API_KEY
+        sync: false          # set manually in Render dashboard
 
   # ── Frontend (React + Vite static site) ───────────────────────────────────
   - type: web
