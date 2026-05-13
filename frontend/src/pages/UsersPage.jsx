@@ -27,12 +27,16 @@ export default function UsersPage() {
 
       const perEvent = {}
       await Promise.all(evs.map(async ev => {
-        const r = await apiFetch(`/api/events/${ev.id}/users`)
-        perEvent[ev.id] = await r.json()
+        try {
+          const r = await apiFetch(`/api/events/${ev.id}/users`)
+          perEvent[ev.id] = await r.json()
+        } catch {
+          perEvent[ev.id] = []
+        }
       }))
       setEventUsers(perEvent)
     } catch {
-      setAllUsers([])
+      // only wipe users if the main users fetch itself failed
     } finally {
       setLoading(false)
     }
