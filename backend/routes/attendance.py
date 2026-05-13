@@ -64,7 +64,7 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
 
         # Fetch all users and find the best match using cosine distance in Python
         users = db.execute(
-            text("SELECT id, name, email, phone, linkedin, occupation, image_url, embedding, role FROM users WHERE embedding IS NOT NULL")
+            text("SELECT id, name, email, phone, linkedin, occupation, description, image_url, embedding, role FROM users WHERE embedding IS NOT NULL")
         ).fetchall()
 
         if not users:
@@ -163,6 +163,7 @@ def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
                     "phone": row.phone,
                     "linkedin": row.linkedin,
                     "occupation": row.occupation,
+                    "description": row.description,
                     "image_url": row.image_url,
                     "already_attended": False,
                     "role": row.role,
