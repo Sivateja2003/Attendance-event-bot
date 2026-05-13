@@ -942,6 +942,28 @@ html, body, #root {
 }
 .url-modal-copy:hover { opacity: 0.88; }
 
+/* Copy confirmation popup */
+.lb-copy-popup {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: var(--accent-green, #22c55e);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 22px;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  pointer-events: none;
+  animation: lb-copy-in 0.18s ease;
+}
+@keyframes lb-copy-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
 /* Toast notification */
 .lb-toast {
   position: fixed;

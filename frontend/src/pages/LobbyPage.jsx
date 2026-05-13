@@ -93,20 +93,6 @@ export default function LobbyPage() {
                     <button className="lb-picker-btn" onClick={() => setSelectedEvent(ev)}>
                       {ev.name}
                     </button>
-                    <button
-                      className="lb-picker-copy"
-                      title="Copy display URL"
-                      onClick={() => navigator.clipboard.writeText(`${window.location.origin}/display/${ev.id}`)}
-                    >
-                      Display URL
-                    </button>
-                    <button
-                      className="lb-picker-copy"
-                      title="Copy register URL"
-                      onClick={() => navigator.clipboard.writeText(`${window.location.origin}/register/${ev.id}`)}
-                    >
-                      Register URL
-                    </button>
                   </div>
                 ))}
               </div>
@@ -199,18 +185,6 @@ export default function LobbyPage() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            className="lb-change-event"
-            onClick={() => navigator.clipboard.writeText(`${window.location.origin}/display/${selectedEvent.id}`)}
-          >
-            Display URL
-          </button>
-          <button
-            className="lb-change-event"
-            onClick={() => navigator.clipboard.writeText(`${window.location.origin}/register/${selectedEvent.id}`)}
-          >
-            Register URL
-          </button>
           <button className="lb-change-event" onClick={() => { setSelectedEvent(null); setAttendees([]) }}>
             Change Event
           </button>

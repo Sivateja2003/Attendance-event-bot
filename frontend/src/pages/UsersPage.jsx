@@ -66,7 +66,7 @@ export default function UsersPage() {
     : (eventUsers[activeTab] || [])
 
   const filtered = displayUsers.filter(u =>
-    [u.name, u.email, u.occupation, u.phone]
+    [u.occupation, u.description]
       .some(v => v?.toLowerCase().includes(search.toLowerCase()))
   )
 
@@ -114,7 +114,7 @@ export default function UsersPage() {
         {/* Search */}
         <input
           className="ul-search"
-          placeholder="Search by name, email, occupation or phone..."
+          placeholder="Search by occupation or description..."
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
