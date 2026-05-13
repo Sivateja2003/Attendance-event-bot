@@ -66,8 +66,9 @@ export default function UsersPage() {
     : (eventUsers[activeTab] || [])
 
   const filtered = displayUsers.filter(u =>
+    !search.trim() ||
     [u.occupation, u.description]
-      .some(v => v?.toLowerCase().includes(search.toLowerCase()))
+      .some(v => v?.toLowerCase()?.includes(search.toLowerCase()))
   )
 
   const totalForTab = activeTab === 'all' ? allUsers.length : (eventUsers[activeTab]?.length ?? 0)
