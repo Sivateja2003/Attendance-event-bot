@@ -77,10 +77,11 @@ function PersonCard({ data }) {
         <div className="dp-time">{time}</div>
         {!isNotEnrolled && (
           <div className="dp-details">
-            <DetailRow label="Email"      value={user.email} />
-            <DetailRow label="Phone"      value={user.phone} />
-            <DetailRow label="Occupation" value={user.occupation} />
-            <DetailRow label="LinkedIn"   value={user.linkedin} />
+            <DetailRow label="Email"       value={user.email} />
+            <DetailRow label="Phone"       value={user.phone} />
+            <DetailRow label="Occupation"  value={user.occupation} />
+            <DetailRow label="Description" value={user.description} />
+            <DetailRow label="LinkedIn"    value={user.linkedin} />
           </div>
         )}
         {isNotEnrolled && (
@@ -432,6 +433,7 @@ function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, o
         <div className="dp-part-profile-name">{p.name}</div>
         <div className="dp-badge dp-badge--present" style={{ alignSelf: 'flex-start', marginBottom: 6 }}>✓ Checked In</div>
         {p.occupation && <div className="dp-part-profile-occupation">{p.occupation}</div>}
+        {p.description && <div className="dp-part-profile-description">{p.description}</div>}
         <div className="dp-part-profile-details">
           {p.email    && <div className="dp-part-profile-row"><span className="dp-part-profile-icon">✉</span><span>{p.email}</span></div>}
           {p.phone    && <div className="dp-part-profile-row"><span className="dp-part-profile-icon">📞</span><span>{p.phone}</span></div>}
