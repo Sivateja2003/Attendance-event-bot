@@ -129,6 +129,7 @@ def import_from_sheet(body: ImportRequest, db: Session = Depends(get_db)):
             phone=row.get("phone_no", row.get("phone_number", row.get("phone", ""))) or None,
             linkedin=row.get("linkedin", "") or None,
             occupation=row.get("occupation", "") or None,
+            description=row.get("description", "") or None,
             image_url=f"/uploads/{filename}",
             embedding=np.array(embedding, dtype=np.float32).tobytes(),
         )

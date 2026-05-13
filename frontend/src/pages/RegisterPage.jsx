@@ -274,7 +274,7 @@ export default function RegisterPage() {
 
         <div className="import-columns-hint">
           Expected column headers (exact, case-insensitive):
-          <code>name &nbsp;|&nbsp; gmail &nbsp;|&nbsp; phone no &nbsp;|&nbsp; occupation &nbsp;|&nbsp; linkedin &nbsp;|&nbsp; photo &nbsp;|&nbsp; event name</code>
+          <code>name &nbsp;|&nbsp; gmail &nbsp;|&nbsp; phone no &nbsp;|&nbsp; occupation &nbsp;|&nbsp; description &nbsp;|&nbsp; linkedin &nbsp;|&nbsp; photo &nbsp;|&nbsp; event name</code>
           <br />
           The <em>photo</em> column should contain a Google Drive sharing link or a direct image URL.
         </div>
