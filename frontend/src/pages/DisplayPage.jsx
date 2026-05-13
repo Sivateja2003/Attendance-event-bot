@@ -582,13 +582,15 @@ export default function DisplayPage() {
   const touchStartX    = useRef(0)
   const touchStartY    = useRef(0)
   const mouseStartX    = useRef(null)
-  const hasSeenScan    = useRef(false)
+  const popupQueue     = useRef([])
+  const popupShowing   = useRef(false)
   const popupTimer     = useRef(null)
   const idleTimer      = useRef(null)
   const scanQueue      = useRef([])
   const isDisplaying   = useRef(false)
   const displayTimer   = useRef(null)
   const showNextRef    = useRef(null)
+  const showNextPopupRef = useRef(null)
 
   const IDLE_TIMEOUT_MS  = 60 * 60 * 1000 // 1 hour
   const DISPLAY_MIN_MS   = 2000            // min time each person stays on screen
@@ -606,6 +608,18 @@ export default function DisplayPage() {
     clearTimeout(idleTimer.current)
     idleTimer.current = setTimeout(() => setPerson(null), IDLE_TIMEOUT_MS)
     displayTimer.current = setTimeout(() => showNextRef.current(), DISPLAY_MIN_MS)
+  }
+
+  const POPUP_DURATION_MS = 3000
+  showNextPopupRef.current = function showNextPopup() {
+    if (popupQueue.current.length === 0) {
+      popupShowing.current = false
+      setPopup(null)
+      return
+    }
+    popupShowing.current = true
+    setPopup(popupQueue.current.shift())
+    popupTimer.current = setTimeout(() => showNextPopupRef.current(), POPUP_DURATION_MS)
   }
 
   /* ── Fetch event name ── */
@@ -662,13 +676,11 @@ export default function DisplayPage() {
         playCheckInSound()
         fireConfetti()
 
-        // Popup only after the first scan
-        if (hasSeenScan.current) {
-          clearTimeout(popupTimer.current)
-          setPopup(data)
-          popupTimer.current = setTimeout(() => setPopup(null), 4000)
+        // Queue popup — every scan gets its own popup shown in sequence
+        popupQueue.current.push(data)
+        if (!popupShowing.current) {
+          showNextPopupRef.current()
         }
-        hasSeenScan.current = true
 
         // Queue the scan — each person gets at least DISPLAY_MIN_MS on screen
         scanQueue.current.push(data)
