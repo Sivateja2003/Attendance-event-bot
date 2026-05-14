@@ -1,16 +1,11 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import Webcam from 'react-webcam'
 import { apiFetch } from '../config'
 
 export default function SignupPage() {
-  const webcamRef = useRef(null)
-
   const [form, setForm] = useState({ name: '', email: '', phone: '', linkedin: '', occupation: '' })
-  const [tab, setTab] = useState('upload')
   const [preview, setPreview] = useState(null)
   const [uploadFile, setUploadFile] = useState(null)
-  const [captured, setCaptured] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [status, setStatus] = useState(null)
   const [statusMsg, setStatusMsg] = useState('')
@@ -25,22 +20,6 @@ export default function SignupPage() {
     if (!file) return
     setUploadFile(file)
     setPreview(URL.createObjectURL(file))
-    setCaptured(null)
-  }
-
-  function handleCapture() {
-    const img = webcamRef.current?.getScreenshot()
-    if (!img) return
-    setCaptured(img)
-    setPreview(img)
-    setUploadFile(null)
-  }
-
-  function switchTab(t) {
-    setTab(t)
-    setPreview(null)
-    setUploadFile(null)
-    setCaptured(null)
   }
 
   function showStatus(type, msg) {
@@ -52,7 +31,6 @@ export default function SignupPage() {
     e.preventDefault()
     if (!form.name.trim()) return showStatus('error', 'Full name is required.')
     if (!form.email.trim()) return showStatus('error', 'Email is required.')
-    if (!uploadFile && !captured) return showStatus('error', 'Please provide a face photo.')
 
     setSubmitting(true)
     setStatus(null)
@@ -64,7 +42,6 @@ export default function SignupPage() {
     if (form.linkedin.trim()) fd.append('linkedin', form.linkedin.trim())
     if (form.occupation.trim()) fd.append('occupation', form.occupation.trim())
     if (uploadFile) fd.append('image', uploadFile)
-    else fd.append('image_base64', captured)
 
     try {
       const res = await apiFetch('/api/auth/signup', { method: 'POST', body: fd })
@@ -90,7 +67,7 @@ export default function SignupPage() {
             You're registered!
           </h2>
           <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 32, lineHeight: 1.7 }}>
-            Your face has been enrolled successfully. You'll be recognised at the check-in kiosk.
+            Your account has been created.
           </p>
           <Link to="/login" className="sr-submit" style={{ display: 'inline-block', textDecoration: 'none', padding: '13px 40px' }}>
             Sign In
@@ -105,7 +82,7 @@ export default function SignupPage() {
       <div className="sr-card">
         <div className="sr-header">
           <h1 className="sr-title">Create Account</h1>
-          <p className="sr-sub">Fill in your details and upload a face photo to get started.</p>
+          <p className="sr-sub">Fill in your details to get started.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="sr-form">
@@ -143,58 +120,21 @@ export default function SignupPage() {
           </div>
 
           <div className="sr-photo-section">
-            <label>Face Photo <span className="req">*</span></label>
-            <div className="sr-tabs">
-              <button type="button" className={tab === 'upload' ? 'active' : ''} onClick={() => switchTab('upload')}>
-                Upload Photo
-              </button>
-              <button type="button" className={tab === 'camera' ? 'active' : ''} onClick={() => switchTab('camera')}>
-                Use Camera
-              </button>
-            </div>
-
+            <label>Profile Photo <span className="sr-hint" style={{ fontWeight: 400 }}>(optional)</span></label>
             <div className="sr-photo-area">
-              {tab === 'upload' && (
-                <>
-                  <input type="file" accept="image/*" id="sp-file" className="sr-hidden"
-                    onChange={handleFileChange} disabled={submitting} />
-                  {!preview ? (
-                    <label htmlFor="sp-file" className="sr-drop">
-                      <div className="sr-drop-icon">+</div>
-                      <span>Click to upload a photo</span>
-                      <span className="sr-drop-hint">JPG, PNG — clear front-facing face</span>
-                    </label>
-                  ) : (
-                    <div className="sr-preview-wrap">
-                      <img src={preview} alt="preview" className="sr-preview" />
-                      <label htmlFor="sp-file" className="sr-retake">Change Photo</label>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {tab === 'camera' && (
-                <>
-                  {!captured ? (
-                    <div className="sr-cam-wrap">
-                      <Webcam ref={webcamRef} audio={false} screenshotFormat="image/jpeg"
-                        screenshotQuality={0.9}
-                        videoConstraints={{ width: 400, height: 300, facingMode: 'user' }}
-                        className="sr-cam" />
-                      <button type="button" className="sr-capture-btn" onClick={handleCapture}>
-                        Capture
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="sr-preview-wrap">
-                      <img src={preview} alt="captured" className="sr-preview" />
-                      <button type="button" className="sr-retake"
-                        onClick={() => { setCaptured(null); setPreview(null) }}>
-                        Retake
-                      </button>
-                    </div>
-                  )}
-                </>
+              <input type="file" accept="image/*" id="sp-file" className="sr-hidden"
+                onChange={handleFileChange} disabled={submitting} />
+              {!preview ? (
+                <label htmlFor="sp-file" className="sr-drop">
+                  <div className="sr-drop-icon">+</div>
+                  <span>Click to upload a photo</span>
+                  <span className="sr-drop-hint">JPG, PNG</span>
+                </label>
+              ) : (
+                <div className="sr-preview-wrap">
+                  <img src={preview} alt="preview" className="sr-preview" />
+                  <label htmlFor="sp-file" className="sr-retake">Change Photo</label>
+                </div>
               )}
             </div>
           </div>

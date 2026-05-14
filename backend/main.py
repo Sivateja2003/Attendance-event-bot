@@ -1,13 +1,11 @@
 import asyncio
-import json
-import numpy as np
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy import text, inspect
 from database import engine, Base
-from routes import register, attendance, events, import_sheet, auth as auth_routes, settings as settings_routes
+from routes import register, attendance, events, import_sheet, auth as auth_routes
 import ws_manager
 import os
 
@@ -26,14 +24,33 @@ def run_migrations():
             ("phone", "VARCHAR(50)"),
             ("linkedin", "VARCHAR(255)"),
             ("occupation", "VARCHAR(255)"),
-            ("description", "TEXT"),
+            ("company", "VARCHAR(255)"),
+            ("industry", "VARCHAR(255)"),
+            ("website", "VARCHAR(255)"),
+            ("business_description", "TEXT"),
         ]:
             if col not in user_cols:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {ddl}"))
 
+        # Drop legacy "description" column (superseded by business_description)
+        if "description" in user_cols:
+            if dialect == "postgresql":
+                conn.execute(text("ALTER TABLE users DROP COLUMN IF EXISTS description"))
+            elif dialect == "sqlite":
+                # SQLite supports DROP COLUMN from 3.35+; older versions silently fail
+                try:
+                    conn.execute(text("ALTER TABLE users DROP COLUMN description"))
+                except Exception as e:
+                    print(f"[startup] could not drop legacy users.description: {e}")
+
         if "event_id" not in att_cols:
             conn.execute(text(
                 "ALTER TABLE attendance ADD COLUMN event_id INTEGER REFERENCES events(id)"
+            ))
+
+        if "check_in_type" not in att_cols:
+            conn.execute(text(
+                "ALTER TABLE attendance ADD COLUMN check_in_type VARCHAR(20)"
             ))
 
         if dialect == "postgresql":
@@ -57,20 +74,6 @@ def run_migrations():
         if "created_by" not in event_cols:
             conn.execute(text("ALTER TABLE events ADD COLUMN created_by INTEGER REFERENCES users(id)"))
 
-        rows = conn.execute(
-            text("SELECT id, embedding FROM users WHERE embedding IS NOT NULL")
-        ).fetchall()
-        for r in rows:
-            val = r.embedding
-            if isinstance(val, (bytes, bytearray, memoryview)):
-                continue
-            if isinstance(val, str) and val.startswith("["):
-                arr = np.array(json.loads(val), dtype=np.float32).tobytes()
-                conn.execute(
-                    text("UPDATE users SET embedding = :e WHERE id = :i"),
-                    {"e": arr, "i": r.id},
-                )
-
 
 def bootstrap_admin():
     admin_email = os.getenv("ADMIN_EMAIL")
@@ -93,7 +96,7 @@ def bootstrap_admin():
         )
 
 
-app = FastAPI(title="Face Attendance System")
+app = FastAPI(title="Attendance System")
 
 
 @app.on_event("startup")
@@ -128,7 +131,6 @@ app.include_router(register.router)
 app.include_router(attendance.router)
 app.include_router(events.router)
 app.include_router(import_sheet.router)
-app.include_router(settings_routes.router)
 
 
 @app.websocket("/ws/display")

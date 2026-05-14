@@ -1,190 +1,114 @@
-from fastapi import APIRouter, Cookie, Depends
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
+from datetime import datetime
+from typing import Literal, Optional
+
+from fastapi import APIRouter, Cookie, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+import ws_manager
 from auth import require_admin
 from database import get_db
-from models import Attendance, User
-from face_service import get_embedding_from_array, b64_to_array, is_live_face
-from typing import Optional
-from datetime import datetime
-import ws_manager
-import numpy as np
-import os
+from models import Attendance, Event, User
 
 router = APIRouter(prefix="/api/attendance", tags=["attendance"])
 
-CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.50"))
-MATCH_THRESHOLD = float(os.getenv("MATCH_THRESHOLD", "0.70"))
+
+class CheckInRequest(BaseModel):
+    user_id: int
+    event_id: int
+    check_in_type: Literal["virtual", "in_person"]
 
 
-class DetectRequest(BaseModel):
-    image: str          # base64 data URL
-    event_id: Optional[int] = None
+@router.post("/checkin", dependencies=[Depends(require_admin)])
+def check_in(body: CheckInRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == body.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+    event = db.query(Event).filter(Event.id == body.event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found.")
+
+    record = (
+        db.query(Attendance)
+        .filter(Attendance.user_id == body.user_id, Attendance.event_id == body.event_id)
+        .first()
+    )
+    now = datetime.utcnow()
+    already_attended = bool(record and record.status == "present")
+    if record:
+        record.status = "present"
+        record.check_in_type = body.check_in_type
+        record.timestamp = now
+    else:
+        record = Attendance(
+            user_id=body.user_id,
+            event_id=body.event_id,
+            status="present",
+            check_in_type=body.check_in_type,
+            timestamp=now,
+        )
+        db.add(record)
+    db.commit()
+    db.refresh(record)
+
+    ws_manager.broadcast({
+        "type": "match",
+        "event_id": body.event_id,
+        "event_name": event.name,
+        "check_in_type": body.check_in_type,
+        "user": {
+            "name": user.name,
+            "email": user.email,
+            "phone": user.phone,
+            "linkedin": user.linkedin,
+            "occupation": user.occupation,
+            "company": user.company,
+            "business_description": user.business_description,
+            "image_url": user.image_url,
+            "already_attended": already_attended,
+            "role": user.role,
+        },
+        "timestamp": now.isoformat(),
+    })
+
+    return {
+        "user_id": record.user_id,
+        "event_id": record.event_id,
+        "status": record.status,
+        "check_in_type": record.check_in_type,
+        "timestamp": record.timestamp,
+    }
 
 
-def cosine_distance(a, b):
-    """Compute cosine distance between two vectors (0 = identical, 2 = opposite)."""
-    a = np.array(a, dtype=np.float64)
-    b = np.array(b, dtype=np.float64)
-    dot = np.dot(a, b)
-    norm = np.linalg.norm(a) * np.linalg.norm(b)
-    if norm == 0:
-        return 2.0
-    return 1.0 - dot / norm
-
-
-@router.post("/detect")
-def detect_face(request: DetectRequest, db: Session = Depends(get_db)):
-    # Validate event if provided
-    event_name = None
-    if request.event_id is not None:
-        event = db.execute(
-            text("SELECT id, name FROM events WHERE id = :eid"),
-            {"eid": request.event_id},
-        ).fetchone()
-        if not event:
-            return {"status": "invalid_event"}
-        event_name = event.name
-
-    # Decode base64 directly to numpy array — no disk write
-    img_array = b64_to_array(request.image)
-    if img_array is None:
-        return {"status": "no_face"}
-
-    try:
-        if not is_live_face(img_array):
-            return {"status": "spoof_detected"}
-
-        embedding = get_embedding_from_array(img_array)
-        if embedding is None:
-            print("[detect] DeepFace could not extract embedding")
-            return {"status": "no_face"}
-
-        # Fetch all users and find the best match using cosine distance in Python
-        users = db.execute(
-            text("SELECT id, name, email, phone, linkedin, occupation, description, image_url, embedding, role FROM users WHERE embedding IS NOT NULL")
-        ).fetchall()
-
-        if not users:
-            return {"status": "no_users_registered"}
-
-        scored = []
-        for user in users:
-            try:
-                user_embedding = np.frombuffer(user.embedding, dtype=np.float32)
-                dist = cosine_distance(embedding, user_embedding)
-                scored.append((dist, user))
-            except (TypeError, ValueError):
-                continue
-
-        if not scored:
-            return {"status": "no_users_registered"}
-
-        scored.sort(key=lambda x: x[0])
-        distance, row = scored[0]
-
-        # Margin check: only required for borderline matches (distance > CONFIDENCE_THRESHOLD).
-        # When we're already confident (low distance), skip the margin check — a tight cluster
-        # of distances is normal as the user base grows.
-        MARGIN_THRESHOLD = 0.09
-        if len(scored) > 1:
-            second_distance = scored[1][0]
-            margin = second_distance - distance
-            print(f"[detect] best='{row.name}' d={distance:.4f} 2nd='{scored[1][1].name}' d2={second_distance:.4f} margin={margin:.4f}")
-            if distance > CONFIDENCE_THRESHOLD and margin < MARGIN_THRESHOLD:
-                return {"status": "not_registered", "distance": round(distance, 4)}
-        else:
-            print(f"[detect] best='{row.name}' distance={distance:.4f} (only user)")
-
-        if distance > MATCH_THRESHOLD:
-            return {"status": "not_registered", "distance": round(distance, 4)}
-
-        if distance > CONFIDENCE_THRESHOLD:
-            return {"status": "low_confidence", "distance": round(distance, 4)}
-
-        # Event-specific enrollment check
-        already_attended = False
-        if request.event_id is not None:
-            record = db.execute(
-                text("SELECT id, status FROM attendance WHERE user_id = :uid AND event_id = :eid"),
-                {"uid": row.id, "eid": request.event_id},
-            ).fetchone()
-
-            if record is None:
-                # Face recognised but not enrolled for this event
-                ws_manager.broadcast({
-                    "type": "not_enrolled",
-                    "event_id": request.event_id,
-                    "user": {"name": row.name, "image_url": row.image_url},
-                    "event_name": event_name,
-                    "timestamp": datetime.utcnow().isoformat(),
-                })
-                return {
-                    "status": "not_registered_for_event",
-                    "user": {"name": row.name},
-                    "distance": round(distance, 4),
-                }
-
-            if record.status == "present":
-                already_attended = True
-            else:
-                # status = "enrolled" → first face scan, mark as present
-                db.execute(
-                    text("UPDATE attendance SET status='present', timestamp=:ts WHERE id=:aid"),
-                    {"aid": record.id, "ts": datetime.utcnow()},
-                )
-                db.commit()
-        else:
-            # No event selected — fall back to per-day duplicate check
-            existing = db.execute(
-                text("SELECT id FROM attendance WHERE user_id = :uid AND event_id IS NULL AND DATE(timestamp) = CURRENT_DATE"),
-                {"uid": row.id},
-            ).fetchone()
-
-            if existing:
-                already_attended = True
-            else:
-                try:
-                    db.add(Attendance(user_id=row.id, event_id=None, status="present"))
-                    db.commit()
-                except IntegrityError:
-                    db.rollback()
-                    already_attended = True
-
-        if not already_attended:
-            ws_manager.broadcast({
-                "type": "match",
-                "event_id": request.event_id,
-                "user": {
-                    "name": row.name,
-                    "email": row.email,
-                    "phone": row.phone,
-                    "linkedin": row.linkedin,
-                    "occupation": row.occupation,
-                    "description": row.description,
-                    "image_url": row.image_url,
-                    "already_attended": False,
-                    "role": row.role,
-                },
-                "event_name": event_name,
-                "timestamp": datetime.utcnow().isoformat(),
-            })
-
-        return {
-            "status": "matched",
-            "user": {
-                "id": row.id,
-                "name": row.name,
-                "image_url": row.image_url,
-                "already_attended": already_attended,
-            },
-            "distance": round(distance, 4),
+@router.get("/roster", dependencies=[Depends(require_admin)])
+def roster(event_id: int, db: Session = Depends(get_db)):
+    """All users enrolled in (or already checked into) the given event."""
+    rows = db.execute(
+        text("""
+            SELECT u.id, u.name, u.email, u.image_url, u.occupation,
+                   a.status, a.check_in_type, a.timestamp
+            FROM attendance a
+            JOIN users u ON u.id = a.user_id
+            WHERE a.event_id = :eid
+              AND (u.role IS NULL OR u.role != 'admin')
+            ORDER BY u.name
+        """),
+        {"eid": event_id},
+    ).fetchall()
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "email": r.email,
+            "image_url": r.image_url,
+            "occupation": r.occupation,
+            "status": r.status,
+            "check_in_type": r.check_in_type,
+            "timestamp": r.timestamp,
         }
-    except Exception as e:
-        print(f"[detect] unexpected error: {e}")
-        return {"status": "error"}
+        for r in rows
+    ]
 
 
 @router.get("/present")
@@ -194,7 +118,6 @@ def present_attendees(
     db: Session = Depends(get_db),
 ):
     """Full profiles of everyone who has checked in (status=present) for an event."""
-    # Determine caller role to decide whether to hide admin accounts
     caller_role = None
     if access_token:
         try:
@@ -205,8 +128,9 @@ def present_attendees(
             pass
 
     query = """
-        SELECT u.id, u.name, u.email, u.phone, u.linkedin, u.occupation, u.description,
-               u.image_url, a.timestamp, e.name AS event_name
+        SELECT u.id, u.name, u.email, u.phone, u.linkedin, u.occupation,
+               u.company, u.industry, u.website, u.business_description,
+               u.image_url, a.timestamp, a.check_in_type, e.name AS event_name
         FROM attendance a
         JOIN users u ON u.id = a.user_id
         LEFT JOIN events e ON e.id = a.event_id
@@ -229,14 +153,17 @@ def present_attendees(
             "phone": r.phone,
             "linkedin": r.linkedin,
             "occupation": r.occupation,
-            "description": r.description,
+            "company": r.company,
+            "industry": r.industry,
+            "website": r.website,
+            "business_description": r.business_description,
             "image_url": r.image_url,
             "checked_in_at": r.timestamp,
+            "check_in_type": r.check_in_type,
             "event_name": r.event_name,
         }
         for r in rows
     ]
-
 
 
 @router.get("/logs", dependencies=[Depends(require_admin)])
@@ -244,7 +171,8 @@ def attendance_logs(event_id: Optional[int] = None, db: Session = Depends(get_db
     if event_id is not None:
         rows = db.execute(
             text("""
-                SELECT a.id, u.name, u.image_url, a.status, a.timestamp, a.event_id, e.name AS event_name
+                SELECT a.id, u.name, u.image_url, a.status, a.check_in_type,
+                       a.timestamp, a.event_id, e.name AS event_name
                 FROM attendance a
                 JOIN users u ON u.id = a.user_id
                 LEFT JOIN events e ON e.id = a.event_id
@@ -257,7 +185,8 @@ def attendance_logs(event_id: Optional[int] = None, db: Session = Depends(get_db
     else:
         rows = db.execute(
             text("""
-                SELECT a.id, u.name, u.image_url, a.status, a.timestamp, a.event_id, e.name AS event_name
+                SELECT a.id, u.name, u.image_url, a.status, a.check_in_type,
+                       a.timestamp, a.event_id, e.name AS event_name
                 FROM attendance a
                 JOIN users u ON u.id = a.user_id
                 LEFT JOIN events e ON e.id = a.event_id
@@ -272,6 +201,7 @@ def attendance_logs(event_id: Optional[int] = None, db: Session = Depends(get_db
             "name": r.name,
             "image_url": r.image_url,
             "status": r.status,
+            "check_in_type": r.check_in_type,
             "timestamp": r.timestamp,
             "event_id": r.event_id,
             "event_name": r.event_name,

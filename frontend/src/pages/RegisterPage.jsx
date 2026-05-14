@@ -1,17 +1,12 @@
-import { useRef, useState, useEffect } from 'react'
-import Webcam from 'react-webcam'
+import { useState, useEffect } from 'react'
 import { apiFetch } from '../config'
 
 export default function RegisterPage() {
-  const webcamRef = useRef(null)
-
-  const [form, setForm] = useState({ name: '', email: '', phone: '', linkedin: '', occupation: '', description: '' })
-  const [tab, setTab] = useState('upload')
+  const [form, setForm] = useState({ name: '', email: '', phone: '', linkedin: '', occupation: '', company: '', industry: '', website: '', business_description: '' })
   const [preview, setPreview] = useState(null)
   const [uploadFile, setUploadFile] = useState(null)
-  const [captured, setCaptured] = useState(null)
   const [submitting, setSubmitting] = useState(false)
-  const [status, setStatus] = useState(null) // null | 'success' | 'error'
+  const [status, setStatus] = useState(null)
   const [statusMsg, setStatusMsg] = useState('')
 
   const [events, setEvents] = useState([])
@@ -24,7 +19,6 @@ export default function RegisterPage() {
       .catch(() => {})
   }, [])
 
-  // Google Sheet import state
   const [sheetUrl, setSheetUrl] = useState('')
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState(null)
@@ -38,22 +32,6 @@ export default function RegisterPage() {
     if (!file) return
     setUploadFile(file)
     setPreview(URL.createObjectURL(file))
-    setCaptured(null)
-  }
-
-  function handleCapture() {
-    const img = webcamRef.current?.getScreenshot()
-    if (!img) return
-    setCaptured(img)
-    setPreview(img)
-    setUploadFile(null)
-  }
-
-  function switchTab(t) {
-    setTab(t)
-    setPreview(null)
-    setUploadFile(null)
-    setCaptured(null)
   }
 
   async function handleSubmit(e) {
@@ -61,7 +39,6 @@ export default function RegisterPage() {
     if (!form.name.trim()) return showStatus('error', 'Full name is required.')
     if (!form.email.trim()) return showStatus('error', 'Email is required.')
     if (!selectedEvent) return showStatus('error', 'Please select an event.')
-    if (!uploadFile && !captured) return showStatus('error', 'Please provide a face photo.')
 
     setSubmitting(true)
     setStatus(null)
@@ -72,7 +49,6 @@ export default function RegisterPage() {
     })
     if (selectedEvent) fd.append('event_id', selectedEvent)
     if (uploadFile) fd.append('image', uploadFile)
-    else fd.append('image_base64', captured)
 
     try {
       const res = await apiFetch('/api/register', { method: 'POST', body: fd })
@@ -82,11 +58,10 @@ export default function RegisterPage() {
       } else {
         const evtMsg = data.event_name ? ` for "${data.event_name}"` : ''
         showStatus('success', `${data.name} registered successfully${evtMsg}!`)
-        setForm({ name: '', email: '', phone: '', linkedin: '', occupation: '', description: '' })
+        setForm({ name: '', email: '', phone: '', linkedin: '', occupation: '', company: '', industry: '', website: '', business_description: '' })
         setSelectedEvent('')
         setPreview(null)
         setUploadFile(null)
-        setCaptured(null)
       }
     } catch {
       showStatus('error', 'Network error. Make sure the backend is running.')
@@ -125,12 +100,11 @@ export default function RegisterPage() {
 
         <div className="sr-header">
           <h1 className="sr-title">Spotregister</h1>
-          <p className="sr-sub">Fill in the details, select your event, and capture your face. You will be eligible only for the event you register under.</p>
+          <p className="sr-sub">Fill in the details and select your event. You will be enrolled in the event you register under.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="sr-form">
 
-          {/* Row 1: Name + Email */}
           <div className="sr-row">
             <div className="sr-field">
               <label>Full Name <span className="req">*</span></label>
@@ -144,7 +118,6 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Row 2: Phone + Occupation */}
           <div className="sr-row">
             <div className="sr-field">
               <label>Phone Number</label>
@@ -158,22 +131,38 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* LinkedIn full width */}
           <div className="sr-field">
             <label>LinkedIn Profile URL</label>
             <input name="linkedin" placeholder="https://linkedin.com/in/yourprofile"
               value={form.linkedin} onChange={handleField} disabled={submitting} />
           </div>
 
-          {/* Description full width */}
+          <div className="sr-row">
+            <div className="sr-field">
+              <label>Company</label>
+              <input name="company" placeholder="Acme Corp" value={form.company}
+                onChange={handleField} disabled={submitting} />
+            </div>
+            <div className="sr-field">
+              <label>Industry</label>
+              <input name="industry" placeholder="SaaS / Healthcare / Fintech" value={form.industry}
+                onChange={handleField} disabled={submitting} />
+            </div>
+          </div>
+
           <div className="sr-field">
-            <label>Description</label>
-            <textarea name="description" placeholder="Brief bio or description…"
-              value={form.description} onChange={handleField} disabled={submitting}
+            <label>Website</label>
+            <input name="website" placeholder="https://yourcompany.com"
+              value={form.website} onChange={handleField} disabled={submitting} />
+          </div>
+
+          <div className="sr-field">
+            <label>Business Description</label>
+            <textarea name="business_description" placeholder="What does your business do…"
+              value={form.business_description} onChange={handleField} disabled={submitting}
               className="sr-textarea" rows={3} />
           </div>
 
-          {/* Event Name */}
           <div className="sr-field">
             <label>Event Name <span className="req">*</span></label>
             <select
@@ -189,69 +178,30 @@ export default function RegisterPage() {
             </select>
             {events.length === 0
               ? <span className="sr-hint">No events created yet. Ask the organiser to create an event first.</span>
-              : <span className="sr-hint">You will only be eligible for the event you select here.</span>
+              : <span className="sr-hint">You will only be enrolled in the event you select here.</span>
             }
           </div>
 
-          {/* Face photo */}
           <div className="sr-photo-section">
-            <label>Face Photo <span className="req">*</span></label>
-            <div className="sr-tabs">
-              <button type="button" className={tab === 'upload' ? 'active' : ''} onClick={() => switchTab('upload')}>
-                Upload Photo
-              </button>
-              <button type="button" className={tab === 'camera' ? 'active' : ''} onClick={() => switchTab('camera')}>
-                Use Camera
-              </button>
-            </div>
-
+            <label>Profile Photo <span className="sr-hint" style={{ fontWeight: 400 }}>(optional)</span></label>
             <div className="sr-photo-area">
-              {tab === 'upload' && (
-                <>
-                  <input type="file" accept="image/*" id="sr-file" className="sr-hidden"
-                    onChange={handleFileChange} disabled={submitting} />
-                  {!preview ? (
-                    <label htmlFor="sr-file" className="sr-drop">
-                      <div className="sr-drop-icon">+</div>
-                      <span>Click to upload a photo</span>
-                      <span className="sr-drop-hint">JPG, PNG — clear front-facing face</span>
-                    </label>
-                  ) : (
-                    <div className="sr-preview-wrap">
-                      <img src={preview} alt="preview" className="sr-preview" />
-                      <label htmlFor="sr-file" className="sr-retake">Change Photo</label>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {tab === 'camera' && (
-                <>
-                  {!captured ? (
-                    <div className="sr-cam-wrap">
-                      <Webcam ref={webcamRef} audio={false} screenshotFormat="image/jpeg"
-                        screenshotQuality={0.9}
-                        videoConstraints={{ width: 400, height: 300, facingMode: 'user' }}
-                        className="sr-cam" />
-                      <button type="button" className="sr-capture-btn" onClick={handleCapture}>
-                        Capture
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="sr-preview-wrap">
-                      <img src={preview} alt="captured" className="sr-preview" />
-                      <button type="button" className="sr-retake"
-                        onClick={() => { setCaptured(null); setPreview(null) }}>
-                        Retake
-                      </button>
-                    </div>
-                  )}
-                </>
+              <input type="file" accept="image/*" id="sr-file" className="sr-hidden"
+                onChange={handleFileChange} disabled={submitting} />
+              {!preview ? (
+                <label htmlFor="sr-file" className="sr-drop">
+                  <div className="sr-drop-icon">+</div>
+                  <span>Click to upload a photo</span>
+                  <span className="sr-drop-hint">JPG, PNG</span>
+                </label>
+              ) : (
+                <div className="sr-preview-wrap">
+                  <img src={preview} alt="preview" className="sr-preview" />
+                  <label htmlFor="sr-file" className="sr-retake">Change Photo</label>
+                </div>
               )}
             </div>
           </div>
 
-          {/* Status message */}
           {status && (
             <div className={`sr-status ${status}`}>{statusMsg}</div>
           )}
@@ -262,7 +212,6 @@ export default function RegisterPage() {
 
         </form>
       </div>
-      {/* ── Google Sheet Bulk Import ── */}
       <div className="sr-card import-card">
         <div className="sr-header">
           <h1 className="sr-title">Bulk Import from Google Sheet</h1>
@@ -274,9 +223,9 @@ export default function RegisterPage() {
 
         <div className="import-columns-hint">
           Expected column headers (exact, case-insensitive):
-          <code>name &nbsp;|&nbsp; gmail &nbsp;|&nbsp; phone no &nbsp;|&nbsp; occupation &nbsp;|&nbsp; description &nbsp;|&nbsp; linkedin &nbsp;|&nbsp; photo &nbsp;|&nbsp; event name</code>
+          <code>name &nbsp;|&nbsp; gmail &nbsp;|&nbsp; phone no &nbsp;|&nbsp; occupation &nbsp;|&nbsp; company &nbsp;|&nbsp; industry &nbsp;|&nbsp; website &nbsp;|&nbsp; business description &nbsp;|&nbsp; linkedin &nbsp;|&nbsp; photo &nbsp;|&nbsp; event name</code>
           <br />
-          The <em>photo</em> column should contain a Google Drive sharing link or a direct image URL.
+          The <em>photo</em> column is optional and may contain a Google Drive sharing link or a direct image URL.
         </div>
 
         <div className="import-row">
@@ -298,7 +247,7 @@ export default function RegisterPage() {
 
         {importing && (
           <div className="import-progress">
-            Processing rows — downloading photos and generating face embeddings. This may take a minute...
+            Processing rows — downloading photos. This may take a minute...
           </div>
         )}
 

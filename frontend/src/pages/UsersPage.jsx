@@ -71,7 +71,7 @@ export default function UsersPage() {
 
   const filtered = displayUsers.filter(u =>
     !search.trim() ||
-    [u.occupation, u.description]
+    [u.occupation, u.company, u.industry, u.business_description]
       .some(v => v?.toLowerCase()?.includes(search.toLowerCase()))
   )
 
@@ -119,7 +119,7 @@ export default function UsersPage() {
         {/* Search */}
         <input
           className="ul-search"
-          placeholder="Search by occupation or description..."
+          placeholder="Search by occupation, company, industry or business description..."
           value={search}
           onChange={e => setSearch(e.target.value)}
         />

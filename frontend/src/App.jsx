@@ -1,15 +1,12 @@
-import { BrowserRouter, Routes, Route, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import AttendancePage from './pages/AttendancePage'
+import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import RegisterPage from './pages/RegisterPage'
 import DisplayPage from './pages/DisplayPage'
 import UsersPage from './pages/UsersPage'
-import LobbyPage from './pages/LobbyPage'
 import LoginPage from './pages/LoginPage'
 import EventRegisterPage from './pages/EventRegisterPage'
 import EventsPage from './pages/EventsPage'
-import SettingsPage from './pages/SettingsPage'
 import SignupPage from './pages/SignupPage'
-import MobileScanPage from './pages/MobileScanPage'
+import CheckInPage from './pages/CheckInPage'
 import { AuthProvider, RequireAuth, useAuth } from './auth'
 
 function Nav() {
@@ -19,7 +16,6 @@ function Nav() {
 
   if (pathname.startsWith('/display')) return null
   if (pathname.startsWith('/register')) return null
-  if (pathname.startsWith('/scan')) return null
 
   async function handleLogout() {
     await logout()
@@ -28,7 +24,7 @@ function Nav() {
 
   return (
     <nav className="nav">
-      <span className="nav-brand">FaceAttend</span>
+      <span className="nav-brand">Attend</span>
       <div className="nav-links">
         {!user && (
           <NavLink to="/login" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
@@ -38,23 +34,17 @@ function Nav() {
 
         {user?.role === 'admin' && (
           <>
-            <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-              Attendance
-            </NavLink>
             <NavLink to="/events" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               Events
+            </NavLink>
+            <NavLink to="/checkin" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+              Check-In
             </NavLink>
             <NavLink to="/spotregister" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               Spotregister
             </NavLink>
-            <NavLink to="/lobby" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-              Who's Here
-            </NavLink>
             <NavLink to="/users" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               Users
-            </NavLink>
-            <NavLink to="/settings" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-              Settings
             </NavLink>
           </>
         )}
@@ -81,15 +71,13 @@ export default function App() {
           <Route path="/register" element={<SignupPage />} />
           <Route path="/display/:eventId" element={<DisplayPage />} />
           <Route path="/register/:eventId" element={<EventRegisterPage />} />
-          <Route path="/scan/:eventId" element={<MobileScanPage />} />
 
           {/* Admin-only routes */}
-          <Route path="/" element={<RequireAuth role="admin"><AttendancePage /></RequireAuth>} />
+          <Route path="/" element={<RequireAuth role="admin"><Navigate to="/events" replace /></RequireAuth>} />
           <Route path="/events" element={<RequireAuth role="admin"><EventsPage /></RequireAuth>} />
+          <Route path="/checkin" element={<RequireAuth role="admin"><CheckInPage /></RequireAuth>} />
           <Route path="/spotregister" element={<RequireAuth role="admin"><RegisterPage /></RequireAuth>} />
-          <Route path="/lobby" element={<RequireAuth role="admin"><LobbyPage /></RequireAuth>} />
           <Route path="/users" element={<RequireAuth role="admin"><UsersPage /></RequireAuth>} />
-          <Route path="/settings" element={<RequireAuth role="admin"><SettingsPage /></RequireAuth>} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
