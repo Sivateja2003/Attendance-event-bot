@@ -13,6 +13,7 @@ from auth import require_admin
 from database import get_db
 from image_storage import UPLOAD_DIR
 from models import Attendance, Event, User
+import search_engine
 
 router = APIRouter(prefix="/api/import", tags=["import"])
 
@@ -70,6 +71,7 @@ def import_from_sheet(body: ImportRequest, db: Session = Depends(get_db)):
     event_cache: dict[str, int] = {}
     imported = 0
     errors: list[str] = []
+    created_users: list[dict] = []
 
     for raw_row in reader:
         row = {norm[k]: (v or "").strip() for k, v in raw_row.items() if k}
@@ -129,7 +131,12 @@ def import_from_sheet(body: ImportRequest, db: Session = Depends(get_db)):
             db.add(Attendance(user_id=user.id, event_id=event_id, status="enrolled"))
             db.commit()
 
+        created_users.append(search_engine.user_to_dict(user))
         imported += 1
+
+    engine = search_engine.get_engine()
+    if engine:
+        engine.upsert_bulk(created_users)
 
     return {
         "success": True,

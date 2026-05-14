@@ -27,6 +27,7 @@ backend/face_auth.db
 backend/face_auth.db-journal
 backend/face_auth.db-wal
 backend/face_auth.db-shm
+backend/attendance.db
 
 # OS
 .DS_Store

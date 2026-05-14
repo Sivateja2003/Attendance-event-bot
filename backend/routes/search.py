@@ -1,0 +1,38 @@
+from typing import Optional
+
+from fastapi import APIRouter, Query
+
+from groq_client import parse_query
+from search_engine import get_engine
+
+router = APIRouter(prefix="/api/search", tags=["search"])
+
+
+@router.get("")
+async def search(
+    q: str = Query(..., min_length=1, description="Natural language search query"),
+    limit: int = Query(10, ge=1, le=50),
+    experience_level: Optional[str] = Query(None),
+    organization: Optional[str] = Query(None),
+):
+    engine = get_engine()
+    if engine is None:
+        return {"query": q, "expanded_query": None, "total": 0, "results": []}
+
+    parsed = await parse_query(q)
+    semantic_query = parsed["semantic_query"]
+    filters = parsed["filters"]
+
+    if experience_level:
+        filters["experience_level"] = experience_level
+    if organization:
+        filters["organization"] = organization
+
+    results = engine.search(query=semantic_query, limit=limit, filters=filters or None)
+
+    return {
+        "query":          q,
+        "expanded_query": semantic_query if semantic_query != q else None,
+        "total":          len(results),
+        "results":        results,
+    }
