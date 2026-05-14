@@ -6,7 +6,6 @@ import UserAvatar from '../components/UserAvatar'
 
 const WS_URL = `${WS_BASE}/ws/display`
 const REFRESH_MS = 5000
-const SEARCH_API = 'http://13.126.130.56:8003'
 
 /* ── Clock ─────────────────────────────────────────────────────── */
 function Clock() {
@@ -182,39 +181,12 @@ function searchLocally(participants, query) {
 
 /* ── Remote search engine (semantic vector search over attendees) ─ */
 async function searchRemote(query, signal) {
-  const url = `${SEARCH_API}/search?q=${encodeURIComponent(query)}&limit=50`
+  const url = `${API_BASE}/api/search?q=${encodeURIComponent(query)}&limit=50`
   const res = await fetch(url, { signal })
   if (!res.ok) throw new Error(`Search API ${res.status}`)
   const data = await res.json()
   // data.results = [{ id, full_name, role, organization, experience_level, detailed_profile, linkedin_url, score }]
   return data.results || []
-}
-
-/* Push our locally-registered participants into the search index so
-   they show up in semantic search results. Best-effort, non-blocking. */
-async function bulkIndexParticipants(participants) {
-  const payload = participants
-    .filter(p => p.name)
-    .map(p => ({
-      id: String(p.id),
-      full_name: p.name,
-      email: p.email || `attendee-${p.id}@local.invalid`,
-      phone: p.phone || null,
-      organization: p.company || p.occupation || 'Independent',
-      role: p.occupation || (p.company ? 'Team member' : 'Attendee'),
-      detailed_profile: p.business_description || null,
-      linkedin_url: p.linkedin || null,
-    }))
-  if (!payload.length) return
-  try {
-    await fetch(`${SEARCH_API}/attendees/bulk`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-  } catch {
-    /* best-effort */
-  }
 }
 
 /* Map a remote search result onto our participant shape. If the
@@ -424,16 +396,6 @@ function ParticipantSwipeView({ participants, startIndex, eventName, onBack }) {
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
   const mouseStartX = useRef(null)
-
-  /* Push current participants into the remote search index so semantic
-     queries return them. Best-effort, runs once per participant-count. */
-  const indexedRef = useRef(0)
-  useEffect(() => {
-    if (participants.length && participants.length !== indexedRef.current) {
-      indexedRef.current = participants.length
-      bulkIndexParticipants(participants)
-    }
-  }, [participants])
 
   /* Clamp index when participants shrinks (e.g. event refresh) */
   useEffect(() => {

@@ -5,9 +5,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy import text, inspect
 from database import engine, Base
-from routes import register, attendance, events, import_sheet, auth as auth_routes
+from routes import register, attendance, events, import_sheet, auth as auth_routes, search as search_routes
 import ws_manager
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
 
 def run_migrations():
@@ -109,6 +111,8 @@ async def startup():
         print("[startup] Database ready")
     except Exception as e:
         print(f"[startup] DB init failed (app still starts): {e}")
+    from search_engine import init_engine
+    init_engine()
 
 
 _origins_env = os.getenv("ALLOW_ORIGINS", "http://localhost:5173,http://localhost:3000")
@@ -131,6 +135,7 @@ app.include_router(register.router)
 app.include_router(attendance.router)
 app.include_router(events.router)
 app.include_router(import_sheet.router)
+app.include_router(search_routes.router)
 
 
 @app.websocket("/ws/display")

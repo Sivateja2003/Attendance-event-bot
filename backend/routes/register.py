@@ -8,6 +8,7 @@ from database import get_db
 from image_storage import UPLOAD_DIR, save_base64_image, save_upload_bytes
 from models import Attendance, AdminSettings, Event, User
 from notifications import send_registration_email
+import search_engine
 
 router = APIRouter(prefix="/api/register", tags=["register"])
 
@@ -62,6 +63,8 @@ async def register_user(
     db.commit()
     db.refresh(user)
 
+    background_tasks.add_task(search_engine.bg_upsert, search_engine.user_to_dict(user))
+
     if event_id is not None:
         db.add(Attendance(user_id=user.id, event_id=event_id, status="enrolled"))
         db.commit()
@@ -110,7 +113,7 @@ def list_users(db: Session = Depends(get_db)):
 
 
 @router.delete("/users/{user_id}", dependencies=[Depends(require_admin)])
-def delete_user(user_id: int, db: Session = Depends(get_db)):
+def delete_user(user_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
@@ -127,5 +130,7 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 
     db.delete(user)
     db.commit()
+
+    background_tasks.add_task(search_engine.bg_delete, user_id)
 
     return {"success": True}
