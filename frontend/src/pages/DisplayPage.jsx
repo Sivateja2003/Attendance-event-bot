@@ -6,6 +6,7 @@ import UserAvatar from '../components/UserAvatar'
 
 const WS_URL = `${WS_BASE}/ws/display`
 const REFRESH_MS = 5000
+const SEARCH_API = 'http://13.126.130.56:8003'
 
 /* ── Clock ─────────────────────────────────────────────────────── */
 function Clock() {
@@ -29,11 +30,11 @@ function IdleScreen({ connected, eventName }) {
         <div className="dp-pulse-ring" />
         <div className="dp-pulse-dot" />
       </div>
-      <div className="dp-brand">FaceAttend</div>
+      <div className="dp-brand">Attend</div>
       {eventName && <div className="dp-idle-event">{eventName}</div>}
       <Clock />
       <div className="dp-idle-sub">
-        {connected ? 'Scan your face to check in' : 'Connecting to server…'}
+        {connected ? 'Live attendance display' : 'Connecting to server…'}
       </div>
     </div>
   )
@@ -94,7 +95,7 @@ function PersonCard({ data }) {
   )
 }
 
-/* ── Client-side participant search ────────────────────────────── */
+/* ── Local search (fallback) ───────────────────────────────────── */
 const SYNONYMS = {
   ai:         ['artificial intelligence', 'machine learning', 'deep learning', 'neural', 'nlp', 'llm', 'generative'],
   ml:         ['machine learning', 'data science', 'deep learning', 'artificial intelligence', 'neural'],
@@ -150,7 +151,6 @@ function _scoreParticipant(p, query, tokens) {
       if (f.text.includes(tok) && !hits.has(f.label)) { score += f.w; hits.add(f.label) }
     }
   }
-  // exact phrase bonus
   const qn = _norm(query)
   if (fields.some(f => f.text.includes(qn))) score += 3
 
@@ -178,86 +178,129 @@ function searchLocally(participants, query) {
     .sort((a, b) => b.score - a.score)
 }
 
-function ParticipantSearch({ participants, onClose, onSelect }) {
-  const [query, setQuery]   = useState('')
-  const [results, setResults] = useState([])
-  const inputRef  = useRef(null)
-  const timerRef  = useRef(null)
+/* ── Remote search engine (semantic vector search over attendees) ─ */
+async function searchRemote(query, signal) {
+  const url = `${SEARCH_API}/search?q=${encodeURIComponent(query)}&limit=50`
+  const res = await fetch(url, { signal })
+  if (!res.ok) throw new Error(`Search API ${res.status}`)
+  const data = await res.json()
+  // data.results = [{ id, full_name, role, organization, experience_level, detailed_profile, linkedin_url, score }]
+  return data.results || []
+}
 
-  useEffect(() => { inputRef.current?.focus() }, [])
-
-  const runSearch = (q) => {
-    setResults(searchLocally(participants, q))
+/* Push our locally-registered participants into the search index so
+   they show up in semantic search results. Best-effort, non-blocking. */
+async function bulkIndexParticipants(participants) {
+  const payload = participants
+    .filter(p => p.name)
+    .map(p => ({
+      id: String(p.id),
+      full_name: p.name,
+      email: p.email || `attendee-${p.id}@local.invalid`,
+      phone: p.phone || null,
+      organization: p.company || p.occupation || 'Independent',
+      role: p.occupation || (p.company ? 'Team member' : 'Attendee'),
+      detailed_profile: [p.description, p.business_description].filter(Boolean).join('\n\n') || null,
+      linkedin_url: p.linkedin || null,
+    }))
+  if (!payload.length) return
+  try {
+    await fetch(`${SEARCH_API}/attendees/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+  } catch {
+    /* best-effort */
   }
+}
 
-  const handleInput = (e) => {
-    const val = e.target.value
-    setQuery(val)
-    clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => runSearch(val), 120)
+/* Map a remote search result onto our participant shape. If the
+   remote id matches one of our local participants, enrich with the
+   local fields (photo, phone, etc.). Otherwise render the remote
+   attendee as-is so it's still useful. */
+function mergeRemoteResult(r, localById) {
+  const local = localById.get(String(r.id))
+  const score = Math.round((r.score || 0) * 100)
+  const reason = [r.experience_level, r.organization].filter(Boolean).join(' · ') || 'Semantic match'
+  if (local) return { ...local, score, reason, _remote: true }
+  return {
+    id: r.id,
+    name: r.full_name,
+    occupation: r.role,
+    company: r.organization,
+    description: r.detailed_profile,
+    linkedin: r.linkedin_url,
+    score,
+    reason,
+    _remote: true,
+    _experience: r.experience_level,
   }
+}
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Escape') onClose()
-  }
+/* ── Participant detail modal ──────────────────────────────────── */
+function ParticipantDetailModal({ person, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
-  const HINTS = ['Cyber Security', 'Data Scientist', 'AI Engineer', 'Product Manager', 'Full Stack Developer', 'DevOps', 'Mobile Developer', 'Designer']
-
+  if (!person) return null
+  const p = person
   return (
-    <div className="dp-search-overlay">
-      <div className="dp-search-header">
-        <button className="dp-search-back" onClick={onClose}>← Back</button>
-        <div className="dp-search-input-wrap">
-          <span className="dp-search-icon-prefix">🔍</span>
-          <input
-            ref={inputRef}
-            className="dp-search-input"
-            placeholder="Search by role, skill or field…"
-            value={query}
-            onChange={handleInput}
-            onKeyDown={handleKeyDown}
-            autoComplete="off"
-            spellCheck="false"
-          />
-          {query && (
-            <button className="dp-search-clear"
-              onClick={() => { setQuery(''); setResults([]); inputRef.current?.focus() }}>✕</button>
-          )}
-        </div>
-      </div>
+    <div className="dp-modal-overlay" onClick={onClose}>
+      <div className="dp-modal" onClick={e => e.stopPropagation()}>
+        <button className="dp-modal-close" onClick={onClose} aria-label="Close">×</button>
 
-      <div className="dp-search-body">
-        {!query && (
-          <div className="dp-search-hints">
-            <div className="dp-search-hints-label">Try searching for:</div>
-            <div className="dp-search-hint-chips">
-              {HINTS.map(h => (
-                <button key={h} className="dp-search-hint-chip"
-                  onClick={() => { setQuery(h); runSearch(h) }}>{h}</button>
-              ))}
-            </div>
+        <div className="dp-modal-body">
+          <div className="dp-modal-left">
+            <UserAvatar src={p.image_url} name={p.name} imgClass="dp-modal-img" fallbackClass="dp-modal-img-fallback" apiBase={API_BASE}>
+              {p.name?.[0]?.toUpperCase()}
+            </UserAvatar>
+            <div className="dp-modal-name">{p.name}</div>
+            {p.company && <div className="dp-modal-company">{p.company}</div>}
+            {p.occupation && <div className="dp-modal-occ">{p.occupation}</div>}
+            <div className="dp-badge dp-badge--present dp-modal-badge">✓ Checked In</div>
           </div>
-        )}
-        {query && results.length === 0 && (
-          <div className="dp-search-state">No participants found for "<strong>{query}</strong>"</div>
-        )}
-        {results.length > 0 && (
-          <div className="dp-search-results">
-            <div className="dp-search-count">{results.length} match{results.length !== 1 ? 'es' : ''} found</div>
-            {results.map(p => (
-              <div key={p.id} className="dp-search-card" onClick={() => onSelect(p)}>
-                <UserAvatar src={p.image_url} name={p.name}
-                  imgClass="dp-search-photo" fallbackClass="dp-search-avatar" apiBase={API_BASE}>
-                  {p.name?.[0]?.toUpperCase()}
-                </UserAvatar>
-                <div className="dp-search-card-body">
-                  <div className="dp-search-card-name">{p.name}</div>
-                  {p.occupation && <div className="dp-search-card-occ">{p.occupation}</div>}
-                  {p.reason && <div className="dp-search-card-reason">✦ {p.reason}</div>}
+
+          <div className="dp-modal-right">
+            <div className="dp-modal-details">
+              {p.email    && <div className="dp-modal-row"><span className="dp-modal-icon">✉</span><span>{p.email}</span></div>}
+              {p.phone    && <div className="dp-modal-row"><span className="dp-modal-icon">📞</span><span>{p.phone}</span></div>}
+              {p.linkedin && (
+                <div className="dp-modal-row">
+                  <span className="dp-modal-icon">🔗</span>
+                  <a href={p.linkedin} target="_blank" rel="noreferrer" style={{ wordBreak: 'break-all', color: 'inherit' }}>{p.linkedin}</a>
                 </div>
-                <div className="dp-search-card-score">{p.score}%</div>
+              )}
+              {p.industry && <div className="dp-modal-row"><span className="dp-modal-icon">🏷</span><span>{p.industry}</span></div>}
+              {p.website  && (
+                <div className="dp-modal-row">
+                  <span className="dp-modal-icon">🌐</span>
+                  <a href={p.website} target="_blank" rel="noreferrer" style={{ wordBreak: 'break-all', color: 'inherit' }}>{p.website}</a>
+                </div>
+              )}
+              {p.checked_in_at && (
+                <div className="dp-modal-row">
+                  <span className="dp-modal-icon">🕐</span>
+                  <span>{new Date(p.checked_in_at + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+              )}
+            </div>
+            {p.description && (
+              <div className="dp-modal-bio">
+                <div className="dp-modal-bio-label">About</div>
+                <div className="dp-modal-bio-text">{p.description}</div>
               </div>
-            ))}
+            )}
+          </div>
+        </div>
+
+        {p.business_description && (
+          <div className="dp-modal-bio dp-modal-business">
+            <div className="dp-modal-bio-label">Company description</div>
+            <div className="dp-modal-bio-text">{p.business_description}</div>
           </div>
         )}
       </div>
@@ -265,250 +308,146 @@ function ParticipantSearch({ participants, onClose, onSelect }) {
   )
 }
 
-/* ── Single participant profile ─────────────────────────────────── */
-function ParticipantProfile({ person, index, total, eventName, onBack, onPrev, onNext, onSearch }) {
-  const [prevSnap, setPrevSnap]     = useState(null)
-  const [isFlipping, setIsFlipping] = useState(false)
-  const [flipDir, setFlipDir]       = useState(null)
+/* ── Participants directory (single-page grid) ─────────────────── */
+function ParticipantsDirectory({ participants, eventName, onBack, onSelect }) {
+  const [query, setQuery]         = useState('')
+  const [results, setResults]     = useState(null)   // null = no search; array (sorted) when active
+  const [searchState, setState]   = useState('idle') // idle | loading | error | done
+  const [errorMsg, setErrorMsg]   = useState('')
+  const debounceRef = useRef(null)
+  const abortRef    = useRef(null)
 
-  const containerRef = useRef(null)
-  const canvasRef    = useRef(null)
-  const flatLayerRef = useRef(null)   // old page: stationary clipped half
-  const turnWrapRef  = useRef(null)   // old page: rotating half (wrapper)
-  const turnInnerRef = useRef(null)   // old page: rotating half (full-width inner)
-  const animRef      = useRef(null)
-  const prevPersonRef = useRef(person)
-  const prevIndexRef  = useRef(index)
-  const flipDirRef    = useRef(null)
-  const firstRender   = useRef(true)
-
+  /* Push current participants into the remote search index once on mount
+     (and whenever the participant list changes substantially) so they
+     can appear in semantic search results. */
+  const indexedRef = useRef(0)
   useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false
-      prevPersonRef.current = person
-      prevIndexRef.current  = index
+    if (participants.length && participants.length !== indexedRef.current) {
+      indexedRef.current = participants.length
+      bulkIndexParticipants(participants)
+    }
+  }, [participants])
+
+  /* Debounced remote search with local fallback */
+  useEffect(() => {
+    if (!query.trim()) {
+      setResults(null)
+      setState('idle')
+      setErrorMsg('')
       return
     }
-    if (prevIndexRef.current !== index && flipDirRef.current) {
-      const dir = flipDirRef.current
-      flipDirRef.current = null
-      setPrevSnap({ person: prevPersonRef.current, index: prevIndexRef.current })
-      setFlipDir(dir)
-      setIsFlipping(true)
-      startFlip(dir)
-    }
-    prevPersonRef.current = person
-    prevIndexRef.current  = index
-  }, [person, index])
-
-  useEffect(() => () => { if (animRef.current) cancelAnimationFrame(animRef.current) }, [])
-
-  const startFlip = (dir) => {
-    let t0 = null
-    const DURATION = 600
-
-    const tick = (ts) => {
-      if (!t0) t0 = ts
-      const raw = Math.min((ts - t0) / DURATION, 1)
-      const t   = raw < 0.5 ? 4 * raw ** 3 : 1 - (-2 * raw + 2) ** 3 / 2
-
-      updateFrame(t, dir)
-
-      if (raw < 1) {
-        animRef.current = requestAnimationFrame(tick)
-      } else {
-        const cv = canvasRef.current
-        if (cv) cv.getContext('2d').clearRect(0, 0, cv.width, cv.height)
-        setIsFlipping(false)
-        setPrevSnap(null)
-        setFlipDir(null)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      abortRef.current?.abort()
+      const ctrl = new AbortController()
+      abortRef.current = ctrl
+      setState('loading')
+      setErrorMsg('')
+      try {
+        const remote = await searchRemote(query, ctrl.signal)
+        const byId = new Map(participants.map(p => [String(p.id), p]))
+        const merged = remote.map(r => mergeRemoteResult(r, byId))
+        setResults(merged)
+        setState('done')
+      } catch (err) {
+        if (err.name === 'AbortError') return
+        const local = searchLocally(participants, query)
+        setResults(local)
+        setState('error')
+        setErrorMsg(err.message || 'Search engine unreachable — using local results')
       }
-    }
-    animRef.current = requestAnimationFrame(tick)
-  }
+    }, 280)
+    return () => clearTimeout(debounceRef.current)
+  }, [query, participants])
 
-  const updateFrame = (t, dir) => {
-    const root = containerRef.current
-    if (!root) return
-    const W = root.offsetWidth
-    const H = root.offsetHeight
+  /* What to render in the grid */
+  const display = results !== null ? results : participants
 
-    /* Fold line sweeps across: next = right→left, prev = left→right */
-    const foldX = dir === 'next' ? W * (1 - t) : W * t
-    /* Turning half grows from 0 to full width over the animation */
-    const turnW = dir === 'next' ? W - foldX : foldX
-    /* Rotation: 0° (flat) → 90° (edge-on, invisible) */
-    const angle = t * 90
+  return (
+    <div className="dp-directory">
+      <button className="dp-back-btn" onClick={onBack}>← Back</button>
 
-    /* ── Flat half: straight clip, no wave ── */
-    if (flatLayerRef.current) {
-      flatLayerRef.current.style.clipPath = dir === 'next'
-        ? `inset(0 ${Math.round(W - foldX)}px 0 0)`
-        : `inset(0 0 0 ${Math.round(foldX)}px)`
-    }
-
-    /* ── Turning half: CSS 3D rotation showing actual old content ── */
-    if (turnWrapRef.current) {
-      const el = turnWrapRef.current
-      if (dir === 'next') {
-        /* Pivot at left edge of wrapper = fold line; right side lifts toward viewer */
-        el.style.left            = `${foldX}px`
-        el.style.width           = `${turnW}px`
-        el.style.transformOrigin = 'left center'
-        el.style.transform       = `perspective(1200px) rotateY(${-angle}deg)`
-      } else {
-        /* Pivot at right edge of wrapper = fold line; left side lifts toward viewer */
-        el.style.left            = '0px'
-        el.style.width           = `${turnW}px`
-        el.style.transformOrigin = 'right center'
-        el.style.transform       = `perspective(1200px) rotateY(${angle}deg)`
-      }
-    }
-    if (turnInnerRef.current) {
-      /* Inner div is full page width; overflow:hidden on wrapper clips it */
-      turnInnerRef.current.style.left  = dir === 'next' ? `-${foldX}px` : '0px'
-      turnInnerRef.current.style.width = `${W}px`
-    }
-
-    /* ── Canvas: shadow ahead of fold + crease highlight only ── */
-    const cv = canvasRef.current
-    if (!cv) return
-    cv.width  = W
-    cv.height = H
-    const ctx = cv.getContext('2d')
-    ctx.clearRect(0, 0, W, H)
-
-    /* Shadow cast onto the newly revealed new page */
-    const shadowW = W * 0.055
-    ctx.save()
-    if (dir === 'next') {
-      const sg = ctx.createLinearGradient(Math.max(0, foldX - shadowW), 0, foldX, 0)
-      sg.addColorStop(0, 'rgba(0,0,0,0)')
-      sg.addColorStop(1, 'rgba(0,0,0,0.55)')
-      ctx.fillStyle = sg
-      ctx.fillRect(Math.max(0, foldX - shadowW), 0, Math.min(shadowW, foldX), H)
-    } else {
-      const sg = ctx.createLinearGradient(foldX, 0, Math.min(W, foldX + shadowW), 0)
-      sg.addColorStop(0, 'rgba(0,0,0,0.55)')
-      sg.addColorStop(1, 'rgba(0,0,0,0)')
-      ctx.fillStyle = sg
-      ctx.fillRect(foldX, 0, Math.min(shadowW, W - foldX), H)
-    }
-    ctx.restore()
-
-    /* Fold crease — sharp bright vertical line */
-    ctx.save()
-    ctx.strokeStyle = 'rgba(220,210,255,0.95)'
-    ctx.lineWidth   = 1.5
-    ctx.shadowColor = 'rgba(180,160,255,0.5)'
-    ctx.shadowBlur  = 5
-    ctx.beginPath()
-    ctx.moveTo(foldX, 0)
-    ctx.lineTo(foldX, H)
-    ctx.stroke()
-    ctx.restore()
-  }
-
-  const handleNextClick = () => {
-    if (isFlipping || index >= total - 1) return
-    flipDirRef.current = 'next'
-    onNext()
-  }
-
-  const handlePrevClick = () => {
-    if (isFlipping) return
-    if (index === 0) { onBack(); return }
-    flipDirRef.current = 'prev'
-    onPrev()
-  }
-
-  const renderContent = (p, i) => (
-    <>
-      <div className="dp-part-photo-side">
-        <UserAvatar src={p.image_url} name={p.name} imgClass="dp-part-big-photo" fallbackClass="dp-part-big-avatar" apiBase={API_BASE}>
-          {p.name?.[0]?.toUpperCase()}
-        </UserAvatar>
-      </div>
-      <div className="dp-part-info-side">
-        <div className="dp-part-profile-name">{p.name}</div>
-        <div className="dp-badge dp-badge--present" style={{ alignSelf: 'flex-start', marginBottom: 6 }}>✓ Checked In</div>
-        {p.occupation && <div className="dp-part-profile-occupation">{p.occupation}</div>}
-        {p.description && <div className="dp-part-profile-description">{p.description}</div>}
-        <div className="dp-part-profile-details">
-          {p.email    && <div className="dp-part-profile-row"><span className="dp-part-profile-icon">✉</span><span>{p.email}</span></div>}
-          {p.phone    && <div className="dp-part-profile-row"><span className="dp-part-profile-icon">📞</span><span>{p.phone}</span></div>}
-          {p.linkedin && <div className="dp-part-profile-row"><span className="dp-part-profile-icon">🔗</span><span style={{ wordBreak: 'break-all' }}>{p.linkedin}</span></div>}
-          {p.checked_in_at && (
-            <div className="dp-part-profile-row">
-              <span className="dp-part-profile-icon">🕐</span>
-              <span>{new Date(p.checked_in_at + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-            </div>
-          )}
+      <div className="dp-dir-inner">
+        <div className="dp-dir-header">
+          <h1 className="dp-dir-title">Event directory</h1>
+          <p className="dp-dir-sub">
+            {participants.length} {participants.length === 1 ? 'person' : 'people'} registered.
+            {' '}Type a query to search.
+            {eventName && <span className="dp-dir-event">◆ {eventName}</span>}
+          </p>
         </div>
-        {total > 1 && (
-          <div className="dp-part-dots">
-            {Array.from({ length: Math.min(total, 12) }).map((_, idx) => (
-              <div key={idx} className={`dp-part-dot ${idx === i % 12 ? 'active' : ''}`} />
+
+        <div className="dp-dir-controls">
+          <div className="dp-dir-search-wrap">
+            <input
+              className="dp-dir-search-input"
+              placeholder='Search… e.g. "ML engineers in healthcare"'
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              autoComplete="off"
+              spellCheck="false"
+            />
+            {searchState === 'loading' && <span className="dp-dir-spinner" />}
+            {query && (
+              <button className="dp-dir-clear" onClick={() => setQuery('')} aria-label="Clear">×</button>
+            )}
+          </div>
+        </div>
+
+        {searchState === 'error' && (
+          <div className="dp-dir-warn">⚠ {errorMsg}</div>
+        )}
+
+        {display.length === 0 ? (
+          <div className="dp-dir-empty">
+            {query
+              ? <>No participants found for "<strong>{query}</strong>"</>
+              : 'No participants registered yet.'}
+          </div>
+        ) : (
+          <div className="dp-dir-grid">
+            {display.map(p => (
+              <button
+                key={p.id}
+                className="dp-dir-card"
+                onClick={() => onSelect(p)}
+              >
+                <div className="dp-dir-card-top">
+                  <UserAvatar
+                    src={p.image_url}
+                    name={p.name}
+                    imgClass="dp-dir-card-photo"
+                    fallbackClass="dp-dir-card-avatar"
+                    apiBase={API_BASE}
+                  >
+                    {(p.name || '?').split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase()).join('')}
+                  </UserAvatar>
+                  <div className="dp-dir-card-body">
+                    <div className="dp-dir-card-name">{p.name}</div>
+                    {p.company && <div className="dp-dir-card-company">{p.company}</div>}
+                    {typeof p.score === 'number' && p.score > 0 && (
+                      <div className="dp-dir-card-reason">
+                        ✦ {p.reason || 'Matched'} · {p.score}%
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {p.linkedin && (
+                  <a
+                    className="dp-dir-card-linkedin"
+                    href={p.linkedin}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    🔗 {p.linkedin}
+                  </a>
+                )}
+              </button>
             ))}
-            {total > 12 && <span className="dp-part-dots-more">+{total - 12}</span>}
           </div>
         )}
       </div>
-    </>
-  )
-
-  return (
-    <div ref={containerRef} className="dp-part-profile">
-
-      {/* z-index 1 — new page, always visible underneath */}
-      <div className="dp-page-layer">
-        <button className="dp-back-btn" onClick={onBack}>← Back</button>
-        <div className="dp-part-counter">
-          {index + 1} / {total}
-          {eventName && <span className="dp-part-event-badge">◆ {eventName}</span>}
-        </div>
-        {person && renderContent(person, index)}
-        <div className="dp-part-nav">
-          <button className="dp-part-nav-btn" onClick={handlePrevClick} disabled={index === 0 || isFlipping}>← Previous</button>
-          <button className="dp-part-nav-btn dp-part-nav-btn--search" onClick={onSearch}>🔍 Search</button>
-          <button className="dp-part-nav-btn" onClick={handleNextClick} disabled={index >= total - 1 || isFlipping}>Next →</button>
-        </div>
-      </div>
-
-      {isFlipping && prevSnap && (<>
-        {/* z-index 2 — old page FLAT half: straight inset clip, no wave */}
-        <div ref={flatLayerRef} className="dp-page-layer dp-page-old" style={{ pointerEvents: 'none' }}>
-          <div className="dp-part-counter">
-            {prevSnap.index + 1} / {total}
-            {eventName && <span className="dp-part-event-badge">◆ {eventName}</span>}
-          </div>
-          {renderContent(prevSnap.person, prevSnap.index)}
-        </div>
-
-        {/* z-index 3 — old page TURNING half: actual content rotating in 3D */}
-        <div
-          ref={turnWrapRef}
-          style={{
-            position: 'absolute', top: 0, height: '100%', zIndex: 3,
-            overflow: 'hidden', pointerEvents: 'none',
-            backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden',
-          }}
-        >
-          <div ref={turnInnerRef} style={{ position: 'absolute', top: 0, height: '100%', display: 'flex' }}>
-            {renderContent(prevSnap.person, prevSnap.index)}
-          </div>
-          {/* Darkness gradient: far edge of turning page is most in shadow (page curves away) */}
-          <div style={{
-            position: 'absolute', inset: 0, pointerEvents: 'none',
-            background: flipDir === 'next'
-              ? 'linear-gradient(to right, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.65) 100%)'
-              : 'linear-gradient(to left,  rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.65) 100%)',
-          }} />
-        </div>
-      </>)}
-
-      {/* z-index 4 — canvas: shadow on new page + crease line only */}
-      {isFlipping && <canvas ref={canvasRef} className="dp-flip-canvas" />}
     </div>
   )
 }
@@ -574,14 +513,10 @@ export default function DisplayPage() {
   const [eventNotFound, setEventNotFound] = useState(false)
   const [view, setView]                 = useState('main')  // 'main' | 'profiles'
   const [participants, setParticipants] = useState([])
-  const [partIndex, setPartIndex]       = useState(0)
+  const [selected, setSelected]         = useState(null)
   const [partLoading, setPartLoading]   = useState(false)
-  const [searchOpen, setSearchOpen]     = useState(false)
   const [popup, setPopup]               = useState(null)
 
-  const touchStartX    = useRef(0)
-  const touchStartY    = useRef(0)
-  const mouseStartX    = useRef(null)
   const popupQueue     = useRef([])
   const popupShowing   = useRef(false)
   const popupTimer     = useRef(null)
@@ -593,9 +528,8 @@ export default function DisplayPage() {
   const showNextPopupRef = useRef(null)
 
   const IDLE_TIMEOUT_MS  = 60 * 60 * 1000 // 1 hour
-  const DISPLAY_MIN_MS   = 2000            // min time each person stays on screen
+  const DISPLAY_MIN_MS   = 2000
 
-  // Defined via ref so setTimeout inside can always call the latest version
   showNextRef.current = function showNext() {
     if (scanQueue.current.length === 0) {
       isDisplaying.current = false
@@ -654,13 +588,6 @@ export default function DisplayPage() {
     return () => clearInterval(t)
   }, [view, loadParticipants])
 
-  /* ── Clamp index ── */
-  useEffect(() => {
-    if (participants.length > 0 && partIndex >= participants.length)
-      setPartIndex(participants.length - 1)
-  }, [participants, partIndex])
-
-
   /* ── WebSocket ── */
   useEffect(() => {
     let reconnectTimer
@@ -672,17 +599,14 @@ export default function DisplayPage() {
         const data = JSON.parse(e.data)
         if (numericEventId !== null && data.event_id !== numericEventId) return
 
-        // Confetti + sound on every scan
         playCheckInSound()
         fireConfetti()
 
-        // Queue popup — every scan gets its own popup shown in sequence
         popupQueue.current.push(data)
         if (!popupShowing.current) {
           showNextPopupRef.current()
         }
 
-        // Queue the scan — each person gets at least DISPLAY_MIN_MS on screen
         scanQueue.current.push(data)
         if (!isDisplaying.current) {
           showNextRef.current()
@@ -703,54 +627,11 @@ export default function DisplayPage() {
     }
   }, [numericEventId])
 
-  /* ── Swipe / drag ── */
-  function handleTouchStart(e) {
-    if (e.target.closest('button')) return
-    touchStartX.current = e.touches[0].clientX
-    touchStartY.current = e.touches[0].clientY
-  }
-  function handleTouchEnd(e) {
-    if (e.target.closest('button')) return
-    const dx = e.changedTouches[0].clientX - touchStartX.current
-    const dy = e.changedTouches[0].clientY - touchStartY.current
-    if (Math.abs(dy) > Math.abs(dx)) return
-    handleSwipe(dx)
-  }
-  function handleMouseDown(e) {
-    if (e.target.closest('button')) return
-    mouseStartX.current = e.clientX
-  }
-  function handleMouseUp(e) {
-    if (e.target.closest('button')) { mouseStartX.current = null; return }
-    if (mouseStartX.current === null) return
-    const dx = e.clientX - mouseStartX.current
-    mouseStartX.current = null
-    handleSwipe(dx)
-  }
-
-  function handleSwipe(dx) {
-    if (Math.abs(dx) < 60) return
-    if (view === 'main') {
-      if (dx < 0) { setView('profiles'); loadParticipants() }
-      return
-    }
-    if (view === 'profiles') {
-      if (dx > 0) {
-        if (partIndex > 0) setPartIndex(i => i - 1)
-        else setView('main')
-      } else {
-        if (partIndex < participants.length - 1) setPartIndex(i => i + 1)
-      }
-    }
-  }
-
-  const isFlipped = view !== 'main'
-
   if (eventNotFound) {
     return (
       <div className="dp-page">
         <div className="dp-idle">
-          <div className="dp-brand">FaceAttend</div>
+          <div className="dp-brand">Attend</div>
           <div style={{ fontSize: '3rem', margin: '16px 0' }}>⚠</div>
           <div style={{ fontSize: '1.3rem', color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>
             This event no longer exists.
@@ -764,17 +645,9 @@ export default function DisplayPage() {
   }
 
   return (
-    <div
-      className="dp-page"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
-    >
-      <div className={`dp-flipper ${isFlipped ? 'dp-flipper--flipped' : ''}`}>
-
-        {/* ── Front — main display ── */}
-        <div className="dp-face dp-face--front">
+    <div className="dp-page">
+      {view === 'main' ? (
+        <div className="dp-face dp-face--front" style={{ position: 'relative', width: '100%', height: '100%' }}>
           {person ? <PersonCard data={person} /> : <IdleScreen connected={connected} eventName={eventName} />}
           <button
             className="dp-open-participants-btn"
@@ -782,68 +655,24 @@ export default function DisplayPage() {
           >
             Open Participants
           </button>
-          <div className="dp-swipe-hint dp-swipe-hint--left">
-            <span className="dp-swipe-arrow">‹</span> swipe to see attendees
-          </div>
         </div>
-
-        {/* ── Back — participant profiles ── */}
-        <div className="dp-face dp-face--back">
-          {view === 'profiles' && (
-            <>
-              {partLoading && participants.length === 0 ? (
-                <div className="dp-part-loading">Loading participants…</div>
-              ) : participants.length === 0 ? (
-                <div className="dp-part-empty">
-                  <div>No one has checked in yet.</div>
-                  {eventName && <div style={{ color: 'var(--accent)', marginTop: 8 }}>{eventName}</div>}
-                  <button className="dp-back-btn" style={{ position: 'static', marginTop: 24 }} onClick={() => setView('main')}>
-                    ← Back
-                  </button>
-                </div>
-              ) : (
-                <ParticipantProfile
-                  person={participants[partIndex]}
-                  index={partIndex}
-                  total={participants.length}
-                  eventName={eventName}
-                  onBack={() => setView('main')}
-                  onPrev={() => { if (partIndex > 0) setPartIndex(i => i - 1); else setView('main') }}
-                  onNext={() => { if (partIndex < participants.length - 1) setPartIndex(i => i + 1) }}
-                  onSearch={() => setSearchOpen(true)}
-                />
-              )}
-
-              {searchOpen && (
-                <ParticipantSearch
-                  participants={participants}
-                  onClose={() => setSearchOpen(false)}
-                  onSelect={(p) => {
-                    const idx = participants.findIndex(x => x.id === p.id)
-                    if (idx >= 0) setPartIndex(idx)
-                    setSearchOpen(false)
-                  }}
-                />
-              )}
-
-              {participants.length > 0 && (
-                <>
-                  <div className="dp-swipe-hint dp-swipe-hint--left">
-                    <span className="dp-swipe-arrow">‹</span>
-                    {partIndex === 0 ? ' back' : ' previous'}
-                  </div>
-                  {partIndex < participants.length - 1 && (
-                    <div className="dp-swipe-hint dp-swipe-hint--right">
-                      next <span className="dp-swipe-arrow">›</span>
-                    </div>
-                  )}
-                </>
-              )}
-            </>
+      ) : (
+        <div className="dp-face dp-face--back" style={{ position: 'relative', width: '100%', height: '100%', pointerEvents: 'auto', transform: 'none', background: 'var(--bg)' }}>
+          {partLoading && participants.length === 0 ? (
+            <div className="dp-part-loading">Loading participants…</div>
+          ) : (
+            <ParticipantsDirectory
+              participants={participants}
+              eventName={eventName}
+              onBack={() => setView('main')}
+              onSelect={(p) => setSelected(p)}
+            />
+          )}
+          {selected && (
+            <ParticipantDetailModal person={selected} onClose={() => setSelected(null)} />
           )}
         </div>
-
-      </div>
+      )}
 
       {popup && <ScanPopup data={popup} />}
     </div>

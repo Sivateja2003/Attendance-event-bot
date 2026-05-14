@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, LargeBinary, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint
 from datetime import datetime
 from database import Base
 
@@ -13,8 +13,11 @@ class User(Base):
     linkedin = Column(String(255))
     occupation = Column(String(255))
     description = Column(String)
+    company = Column(String(255))
+    industry = Column(String(255))
+    website = Column(String(255))
+    business_description = Column(String)
     image_url = Column(String)
-    embedding = Column(LargeBinary)  # np.float32 bytes, 128 floats * 4 bytes = 512 bytes
     registered_at = Column(DateTime, default=datetime.utcnow)
     password_hash = Column(String(255), nullable=True)
     role = Column(String(20), nullable=False, default="user")
@@ -49,6 +52,7 @@ class Attendance(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
     status = Column(String(50), default="present")
+    check_in_type = Column(String(20), nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (

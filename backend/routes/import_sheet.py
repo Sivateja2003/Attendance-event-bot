@@ -4,8 +4,6 @@ import os
 import re
 import uuid
 
-import numpy as np
-
 import requests
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -13,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from auth import require_admin
 from database import get_db
-from face_service import UPLOAD_DIR, get_embedding
+from image_storage import UPLOAD_DIR
 from models import Attendance, Event, User
 
 router = APIRouter(prefix="/api/import", tags=["import"])
@@ -54,13 +52,11 @@ class ImportRequest(BaseModel):
 
 @router.post("/google-sheet", dependencies=[Depends(require_admin)])
 def import_from_sheet(body: ImportRequest, db: Session = Depends(get_db)):
-    # 1. Build CSV export URL
     try:
         csv_url = _csv_url(body.sheet_url)
     except ValueError as e:
         return {"success": False, "error": str(e)}
 
-    # 2. Fetch CSV
     try:
         sheet_r = _fetch(csv_url)
     except Exception as e:
@@ -68,8 +64,6 @@ def import_from_sheet(body: ImportRequest, db: Session = Depends(get_db)):
 
     reader = csv.DictReader(io.StringIO(sheet_r.text))
 
-    # Normalize header names: strip, lowercase, spaces→underscores
-    # e.g. "Phone No" → "phone_no", "Event Name" → "event_name"
     raw_fields = reader.fieldnames or []
     norm = {k: k.strip().lower().replace(" ", "_") for k in raw_fields}
 
@@ -84,7 +78,6 @@ def import_from_sheet(body: ImportRequest, db: Session = Depends(get_db)):
         if not name:
             continue
 
-        # ── Event ──────────────────────────────────────────────────────────
         event_name = row.get("event_name", row.get("event", ""))
         event_id = None
         if event_name:
@@ -98,31 +91,19 @@ def import_from_sheet(body: ImportRequest, db: Session = Depends(get_db)):
                 event_cache[event_name] = ev.id
             event_id = event_cache[event_name]
 
-        # ── Photo ──────────────────────────────────────────────────────────
+        image_url = None
         photo_raw = row.get("photo", row.get("photo_url", row.get("image", "")))
-        if not photo_raw:
-            errors.append(f"{name}: no photo URL in row")
-            continue
+        if photo_raw:
+            try:
+                photo_r = _fetch(_direct_url(photo_raw))
+                filename = f"{uuid.uuid4().hex}.jpg"
+                filepath = os.path.join(UPLOAD_DIR, filename)
+                with open(filepath, "wb") as f:
+                    f.write(photo_r.content)
+                image_url = f"/uploads/{filename}"
+            except Exception as e:
+                errors.append(f"{name}: photo download failed — {e}")
 
-        try:
-            photo_r = _fetch(_direct_url(photo_raw))
-        except Exception as e:
-            errors.append(f"{name}: photo download failed — {e}")
-            continue
-
-        filename = f"{uuid.uuid4().hex}.jpg"
-        filepath = os.path.join(UPLOAD_DIR, filename)
-        with open(filepath, "wb") as f:
-            f.write(photo_r.content)
-
-        # ── Face embedding ─────────────────────────────────────────────────
-        embedding = get_embedding(filepath)
-        if embedding is None:
-            os.remove(filepath)
-            errors.append(f"{name}: no face detected in photo")
-            continue
-
-        # ── Save user ──────────────────────────────────────────────────────
         user = User(
             name=name,
             email=row.get("gmail", row.get("email", "")) or None,
@@ -130,14 +111,12 @@ def import_from_sheet(body: ImportRequest, db: Session = Depends(get_db)):
             linkedin=row.get("linkedin", "") or None,
             occupation=row.get("occupation", "") or None,
             description=row.get("description", "") or None,
-            image_url=f"/uploads/{filename}",
-            embedding=np.array(embedding, dtype=np.float32).tobytes(),
+            image_url=image_url,
         )
         db.add(user)
         db.commit()
         db.refresh(user)
 
-        # Enroll in the event from the sheet (face scan will mark as "present")
         if event_id is not None:
             db.add(Attendance(user_id=user.id, event_id=event_id, status="enrolled"))
             db.commit()

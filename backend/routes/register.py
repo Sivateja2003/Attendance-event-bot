@@ -1,13 +1,13 @@
-import asyncio
+import os
+
 from fastapi import APIRouter, BackgroundTasks, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db, SessionLocal
-from models import User, Attendance, AdminSettings, Event
-from face_service import get_embedding, save_upload_bytes, save_base64_image, UPLOAD_DIR
+
 from auth import require_admin
+from database import get_db
+from image_storage import UPLOAD_DIR, save_base64_image, save_upload_bytes
+from models import Attendance, AdminSettings, Event, User
 from notifications import send_registration_email
-import numpy as np
-import os
 
 router = APIRouter(prefix="/api/register", tags=["register"])
 
@@ -21,16 +21,16 @@ async def register_user(
     linkedin: str = Form(None),
     occupation: str = Form(None),
     description: str = Form(None),
+    company: str = Form(None),
+    industry: str = Form(None),
+    website: str = Form(None),
+    business_description: str = Form(None),
     event_id: int = Form(None),
     image: UploadFile = File(None),
     image_base64: str = Form(None),
     db: Session = Depends(get_db),
     current_user=Depends(require_admin),
 ):
-    if not image and not image_base64:
-        raise HTTPException(status_code=400, detail="Provide either image file or base64 image.")
-
-    # Validate event if provided
     event_name = None
     if event_id is not None:
         event = db.query(Event).filter(Event.id == event_id).first()
@@ -38,20 +38,14 @@ async def register_user(
             raise HTTPException(status_code=404, detail="Event not found.")
         event_name = event.name
 
+    image_url = None
     if image:
         file_bytes = await image.read()
-        filepath, filename = save_upload_bytes(file_bytes, image.filename)
+        _, filename = save_upload_bytes(file_bytes, image.filename)
         image_url = f"/uploads/{filename}"
-    else:
+    elif image_base64:
         filepath = save_base64_image(image_base64)
         image_url = f"/uploads/{os.path.basename(filepath)}"
-
-    loop = asyncio.get_event_loop()
-    embedding = await loop.run_in_executor(None, get_embedding, filepath)
-    if embedding is None:
-        if os.path.exists(filepath):
-            os.remove(filepath)
-        raise HTTPException(status_code=400, detail="No face detected. Use a clear, front-facing photo.")
 
     user = User(
         name=name.strip(),
@@ -60,8 +54,11 @@ async def register_user(
         linkedin=linkedin.strip() if linkedin else None,
         occupation=occupation.strip() if occupation else None,
         description=description.strip() if description else None,
+        company=company.strip() if company else None,
+        industry=industry.strip() if industry else None,
+        website=website.strip() if website else None,
+        business_description=business_description.strip() if business_description else None,
         image_url=image_url,
-        embedding=np.array(embedding, dtype=np.float32).tobytes(),
     )
     db.add(user)
     db.commit()
@@ -109,39 +106,6 @@ def list_users(db: Session = Depends(get_db)):
         }
         for u in users
     ]
-
-
-def _run_reindex():
-    """Background task: recompute robust embeddings for all non-admin users from stored photos."""
-    db = SessionLocal()
-    try:
-        users = db.query(User).filter(User.image_url.isnot(None), User.role != "admin").all()
-        updated, failed = 0, 0
-        for user in users:
-            filepath = os.path.join(UPLOAD_DIR, os.path.basename(user.image_url))
-            if not os.path.exists(filepath):
-                print(f"[reindex] {user.name}: photo not found — skipping")
-                failed += 1
-                continue
-            embedding = get_embedding(filepath)
-            if embedding is None:
-                print(f"[reindex] {user.name}: no face detected — skipping")
-                failed += 1
-                continue
-            user.embedding = np.array(embedding, dtype=np.float32).tobytes()
-            db.commit()
-            print(f"[reindex] {user.name}: updated")
-            updated += 1
-        print(f"[reindex] Complete — {updated} updated, {failed} failed")
-    finally:
-        db.close()
-
-
-@router.post("/reindex", dependencies=[Depends(require_admin)])
-async def reindex_embeddings(background_tasks: BackgroundTasks):
-    """Recompute robust embeddings for all registered users from their stored photos."""
-    background_tasks.add_task(_run_reindex)
-    return {"message": "Reindexing started — check server logs for progress."}
 
 
 @router.delete("/users/{user_id}", dependencies=[Depends(require_admin)])

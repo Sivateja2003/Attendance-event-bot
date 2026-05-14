@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from datetime import datetime, date as date_type
 from database import get_db
 from models import Event, Attendance, User
-from face_service import UPLOAD_DIR
+from image_storage import UPLOAD_DIR
 from auth import require_admin
 import os
 

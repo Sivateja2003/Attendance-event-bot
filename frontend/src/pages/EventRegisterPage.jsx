@@ -1,17 +1,13 @@
-import { useRef, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import Webcam from 'react-webcam'
 import { apiFetch } from '../config'
 
 export default function EventRegisterPage() {
   const { eventId } = useParams()
-  const webcamRef = useRef(null)
 
-  const [form, setForm] = useState({ name: '', email: '', phone: '', linkedin: '', occupation: '', description: '' })
-  const [tab, setTab] = useState('upload')
+  const [form, setForm] = useState({ name: '', email: '', phone: '', linkedin: '', occupation: '', description: '', company: '', industry: '', website: '', business_description: '' })
   const [preview, setPreview] = useState(null)
   const [uploadFile, setUploadFile] = useState(null)
-  const [captured, setCaptured] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [status, setStatus] = useState(null)
   const [statusMsg, setStatusMsg] = useState('')
@@ -39,22 +35,6 @@ export default function EventRegisterPage() {
     if (!file) return
     setUploadFile(file)
     setPreview(URL.createObjectURL(file))
-    setCaptured(null)
-  }
-
-  function handleCapture() {
-    const img = webcamRef.current?.getScreenshot()
-    if (!img) return
-    setCaptured(img)
-    setPreview(img)
-    setUploadFile(null)
-  }
-
-  function switchTab(t) {
-    setTab(t)
-    setPreview(null)
-    setUploadFile(null)
-    setCaptured(null)
   }
 
   function showStatus(type, msg) {
@@ -66,7 +46,6 @@ export default function EventRegisterPage() {
     e.preventDefault()
     if (!form.name.trim()) return showStatus('error', 'Full name is required.')
     if (!form.email.trim()) return showStatus('error', 'Email is required.')
-    if (!uploadFile && !captured) return showStatus('error', 'Please provide a face photo.')
 
     setSubmitting(true)
     setStatus(null)
@@ -78,9 +57,12 @@ export default function EventRegisterPage() {
     if (form.linkedin.trim()) fd.append('linkedin', form.linkedin.trim())
     if (form.occupation.trim()) fd.append('occupation', form.occupation.trim())
     if (form.description.trim()) fd.append('description', form.description.trim())
+    if (form.company.trim()) fd.append('company', form.company.trim())
+    if (form.industry.trim()) fd.append('industry', form.industry.trim())
+    if (form.website.trim()) fd.append('website', form.website.trim())
+    if (form.business_description.trim()) fd.append('business_description', form.business_description.trim())
     fd.append('event_id', eventId)
     if (uploadFile) fd.append('image', uploadFile)
-    else fd.append('image_base64', captured)
 
     try {
       const res = await apiFetch('/api/auth/signup', { method: 'POST', body: fd })
@@ -89,11 +71,9 @@ export default function EventRegisterPage() {
         showStatus('error', data.detail || 'Registration failed.')
       } else {
         showStatus('success', `Successfully registered for "${eventName || 'the event'}"! You're all set.`)
-        setForm({ name: '', email: '', phone: '', linkedin: '', occupation: '', description: '' })
+        setForm({ name: '', email: '', phone: '', linkedin: '', occupation: '', description: '', company: '', industry: '', website: '', business_description: '' })
         setPreview(null)
         setUploadFile(null)
-        setCaptured(null)
-        setTab('upload')
       }
     } catch {
       showStatus('error', 'Network error. Make sure the backend is running.')
@@ -120,14 +100,13 @@ export default function EventRegisterPage() {
         <div className="sr-header">
           <h1 className="sr-title">Register</h1>
           {eventName
-            ? <p className="sr-sub">Registering for <strong>{eventName}</strong>. Fill in your details and capture your face photo.</p>
+            ? <p className="sr-sub">Registering for <strong>{eventName}</strong>. Fill in your details below.</p>
             : <p className="sr-sub">Loading event details…</p>
           }
         </div>
 
         <form onSubmit={handleSubmit} className="sr-form">
 
-          {/* Name + Email */}
           <div className="sr-row">
             <div className="sr-field">
               <label>Full Name <span className="req">*</span></label>
@@ -141,7 +120,6 @@ export default function EventRegisterPage() {
             </div>
           </div>
 
-          {/* Phone + Occupation */}
           <div className="sr-row">
             <div className="sr-field">
               <label>Phone Number</label>
@@ -155,14 +133,12 @@ export default function EventRegisterPage() {
             </div>
           </div>
 
-          {/* LinkedIn */}
           <div className="sr-field">
             <label>LinkedIn Profile URL</label>
             <input name="linkedin" placeholder="https://linkedin.com/in/yourprofile"
               value={form.linkedin} onChange={handleField} disabled={submitting} />
           </div>
 
-          {/* Description */}
           <div className="sr-field">
             <label>Description</label>
             <textarea name="description" placeholder="Brief bio or description…"
@@ -170,60 +146,48 @@ export default function EventRegisterPage() {
               className="sr-textarea" rows={3} />
           </div>
 
-          {/* Face photo */}
-          <div className="sr-photo-section">
-            <label>Face Photo <span className="req">*</span></label>
-            <div className="sr-tabs">
-              <button type="button" className={tab === 'upload' ? 'active' : ''} onClick={() => switchTab('upload')}>
-                Upload Photo
-              </button>
-              <button type="button" className={tab === 'camera' ? 'active' : ''} onClick={() => switchTab('camera')}>
-                Use Camera
-              </button>
+          <div className="sr-row">
+            <div className="sr-field">
+              <label>Company</label>
+              <input name="company" placeholder="Acme Corp" value={form.company}
+                onChange={handleField} disabled={submitting} />
             </div>
+            <div className="sr-field">
+              <label>Industry</label>
+              <input name="industry" placeholder="SaaS / Healthcare / Fintech" value={form.industry}
+                onChange={handleField} disabled={submitting} />
+            </div>
+          </div>
 
+          <div className="sr-field">
+            <label>Website</label>
+            <input name="website" placeholder="https://yourcompany.com"
+              value={form.website} onChange={handleField} disabled={submitting} />
+          </div>
+
+          <div className="sr-field">
+            <label>Business Description</label>
+            <textarea name="business_description" placeholder="What does your business do…"
+              value={form.business_description} onChange={handleField} disabled={submitting}
+              className="sr-textarea" rows={3} />
+          </div>
+
+          <div className="sr-photo-section">
+            <label>Profile Photo <span className="sr-hint" style={{ fontWeight: 400 }}>(optional)</span></label>
             <div className="sr-photo-area">
-              {tab === 'upload' && (
-                <>
-                  <input type="file" accept="image/*" id="er-file" className="sr-hidden"
-                    onChange={handleFileChange} disabled={submitting} />
-                  {!preview ? (
-                    <label htmlFor="er-file" className="sr-drop">
-                      <div className="sr-drop-icon">+</div>
-                      <span>Click to upload a photo</span>
-                      <span className="sr-drop-hint">JPG, PNG — clear front-facing face</span>
-                    </label>
-                  ) : (
-                    <div className="sr-preview-wrap">
-                      <img src={preview} alt="preview" className="sr-preview" />
-                      <label htmlFor="er-file" className="sr-retake">Change Photo</label>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {tab === 'camera' && (
-                <>
-                  {!captured ? (
-                    <div className="sr-cam-wrap">
-                      <Webcam ref={webcamRef} audio={false} screenshotFormat="image/jpeg"
-                        screenshotQuality={0.9}
-                        videoConstraints={{ width: 400, height: 300, facingMode: 'user' }}
-                        className="sr-cam" />
-                      <button type="button" className="sr-capture-btn" onClick={handleCapture}>
-                        Capture
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="sr-preview-wrap">
-                      <img src={preview} alt="captured" className="sr-preview" />
-                      <button type="button" className="sr-retake"
-                        onClick={() => { setCaptured(null); setPreview(null) }}>
-                        Retake
-                      </button>
-                    </div>
-                  )}
-                </>
+              <input type="file" accept="image/*" id="er-file" className="sr-hidden"
+                onChange={handleFileChange} disabled={submitting} />
+              {!preview ? (
+                <label htmlFor="er-file" className="sr-drop">
+                  <div className="sr-drop-icon">+</div>
+                  <span>Click to upload a photo</span>
+                  <span className="sr-drop-hint">JPG, PNG</span>
+                </label>
+              ) : (
+                <div className="sr-preview-wrap">
+                  <img src={preview} alt="preview" className="sr-preview" />
+                  <label htmlFor="er-file" className="sr-retake">Change Photo</label>
+                </div>
               )}
             </div>
           </div>

@@ -31,7 +31,7 @@ def send_registration_email(
         f"Hi {name},\n\n"
         f"You've been successfully registered for {event_name}.\n\n"
         f"Watch the live display screen here:\n{display_url}\n\n"
-        f"See you there!\nFaceAttend"
+        f"See you there!\nAttend"
     )
     html = f"""<html><body style="font-family:sans-serif;color:#1a1a2e;padding:24px">
   <h2 style="color:#6c63ff">You're registered!</h2>
@@ -39,7 +39,7 @@ def send_registration_email(
   <p>You've been successfully registered for <strong>{event_name}</strong>.</p>
   <p>Watch the live display screen here:</p>
   <p><a href="{display_url}" style="color:#6c63ff">{display_url}</a></p>
-  <p>See you there!<br><strong>FaceAttend</strong></p>
+  <p>See you there!<br><strong>Attend</strong></p>
 </body></html>"""
 
     msg.attach(MIMEText(text, "plain"))

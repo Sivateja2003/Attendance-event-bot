@@ -28,8 +28,8 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-header">
-          <div className="login-logo">FA</div>
-          <h1 className="login-title">FaceAttend</h1>
+          <div className="login-logo">A</div>
+          <h1 className="login-title">Attend</h1>
           <p className="login-sub">Sign in to your account</p>
         </div>
 

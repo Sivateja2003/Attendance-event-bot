@@ -1,15 +1,11 @@
-import asyncio
 import os
-
-import numpy as np
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile
 from sqlalchemy.orm import Session
-from typing import Optional
 
 from auth import create_access_token, get_current_user, hash_password, verify_password
 from database import get_db
-from face_service import UPLOAD_DIR, get_embedding, save_base64_image, save_upload_bytes
+from image_storage import save_base64_image, save_upload_bytes
 from models import Attendance, AdminSettings, Event, User
 from notifications import send_registration_email
 
@@ -71,14 +67,15 @@ async def signup(
     linkedin: str = Form(None),
     occupation: str = Form(None),
     description: str = Form(None),
+    company: str = Form(None),
+    industry: str = Form(None),
+    website: str = Form(None),
+    business_description: str = Form(None),
     event_id: int = Form(None),
     image: UploadFile = File(None),
     image_base64: str = Form(None),
     db: Session = Depends(get_db),
 ):
-    if not image and not image_base64:
-        raise HTTPException(status_code=400, detail="Provide either image file or base64 image.")
-
     existing = db.query(User).filter(User.email == email.strip()).first()
     if existing:
         raise HTTPException(status_code=400, detail="An account with this email already exists.")
@@ -90,20 +87,14 @@ async def signup(
             raise HTTPException(status_code=404, detail="Event not found.")
         event_name = event.name
 
+    image_url = None
     if image:
         file_bytes = await image.read()
-        filepath, filename = save_upload_bytes(file_bytes, image.filename)
+        _, filename = save_upload_bytes(file_bytes, image.filename)
         image_url = f"/uploads/{filename}"
-    else:
+    elif image_base64:
         filepath = save_base64_image(image_base64)
         image_url = f"/uploads/{os.path.basename(filepath)}"
-
-    loop = asyncio.get_event_loop()
-    embedding = await loop.run_in_executor(None, get_embedding, filepath)
-    if embedding is None:
-        if os.path.exists(filepath):
-            os.remove(filepath)
-        raise HTTPException(status_code=400, detail="No face detected. Use a clear, front-facing photo.")
 
     user = User(
         name=name.strip(),
@@ -112,8 +103,11 @@ async def signup(
         linkedin=linkedin.strip() if linkedin else None,
         occupation=occupation.strip() if occupation else None,
         description=description.strip() if description else None,
+        company=company.strip() if company else None,
+        industry=industry.strip() if industry else None,
+        website=website.strip() if website else None,
+        business_description=business_description.strip() if business_description else None,
         image_url=image_url,
-        embedding=np.array(embedding, dtype=np.float32).tobytes(),
         password_hash=hash_password(password) if password else None,
         role="user",
     )
@@ -128,7 +122,6 @@ async def signup(
         base_url = os.getenv("APP_BASE_URL", "http://localhost:5173").rstrip("/")
         display_url = f"{base_url}/display/{event_id}"
 
-        # Use the event creator's email settings; fall back to any configured admin
         admin_cfg = None
         if event.created_by:
             admin_cfg = db.query(AdminSettings).filter(AdminSettings.user_id == event.created_by).first()
