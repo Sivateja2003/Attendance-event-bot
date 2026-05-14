@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { apiFetch } from '../config'
 
 export default function RegisterPage() {
-  const [form, setForm] = useState({ name: '', email: '', phone: '', linkedin: '', occupation: '', description: '', company: '', industry: '', website: '', business_description: '' })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', linkedin: '', occupation: '', company: '', industry: '', website: '', business_description: '' })
   const [preview, setPreview] = useState(null)
   const [uploadFile, setUploadFile] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -58,7 +58,7 @@ export default function RegisterPage() {
       } else {
         const evtMsg = data.event_name ? ` for "${data.event_name}"` : ''
         showStatus('success', `${data.name} registered successfully${evtMsg}!`)
-        setForm({ name: '', email: '', phone: '', linkedin: '', occupation: '', description: '', company: '', industry: '', website: '', business_description: '' })
+        setForm({ name: '', email: '', phone: '', linkedin: '', occupation: '', company: '', industry: '', website: '', business_description: '' })
         setSelectedEvent('')
         setPreview(null)
         setUploadFile(null)
@@ -135,13 +135,6 @@ export default function RegisterPage() {
             <label>LinkedIn Profile URL</label>
             <input name="linkedin" placeholder="https://linkedin.com/in/yourprofile"
               value={form.linkedin} onChange={handleField} disabled={submitting} />
-          </div>
-
-          <div className="sr-field">
-            <label>Description</label>
-            <textarea name="description" placeholder="Brief bio or description…"
-              value={form.description} onChange={handleField} disabled={submitting}
-              className="sr-textarea" rows={3} />
           </div>
 
           <div className="sr-row">
@@ -230,7 +223,7 @@ export default function RegisterPage() {
 
         <div className="import-columns-hint">
           Expected column headers (exact, case-insensitive):
-          <code>name &nbsp;|&nbsp; gmail &nbsp;|&nbsp; phone no &nbsp;|&nbsp; occupation &nbsp;|&nbsp; description &nbsp;|&nbsp; linkedin &nbsp;|&nbsp; photo &nbsp;|&nbsp; event name</code>
+          <code>name &nbsp;|&nbsp; gmail &nbsp;|&nbsp; phone no &nbsp;|&nbsp; occupation &nbsp;|&nbsp; company &nbsp;|&nbsp; industry &nbsp;|&nbsp; website &nbsp;|&nbsp; business description &nbsp;|&nbsp; linkedin &nbsp;|&nbsp; photo &nbsp;|&nbsp; event name</code>
           <br />
           The <em>photo</em> column is optional and may contain a Google Drive sharing link or a direct image URL.
         </div>

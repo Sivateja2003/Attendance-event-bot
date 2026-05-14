@@ -63,7 +63,8 @@ def check_in(body: CheckInRequest, db: Session = Depends(get_db)):
             "phone": user.phone,
             "linkedin": user.linkedin,
             "occupation": user.occupation,
-            "description": user.description,
+            "company": user.company,
+            "business_description": user.business_description,
             "image_url": user.image_url,
             "already_attended": already_attended,
             "role": user.role,
@@ -127,7 +128,7 @@ def present_attendees(
             pass
 
     query = """
-        SELECT u.id, u.name, u.email, u.phone, u.linkedin, u.occupation, u.description,
+        SELECT u.id, u.name, u.email, u.phone, u.linkedin, u.occupation,
                u.company, u.industry, u.website, u.business_description,
                u.image_url, a.timestamp, a.check_in_type, e.name AS event_name
         FROM attendance a
@@ -152,7 +153,6 @@ def present_attendees(
             "phone": r.phone,
             "linkedin": r.linkedin,
             "occupation": r.occupation,
-            "description": r.description,
             "company": r.company,
             "industry": r.industry,
             "website": r.website,

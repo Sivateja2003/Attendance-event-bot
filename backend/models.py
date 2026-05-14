@@ -12,7 +12,6 @@ class User(Base):
     phone = Column(String(50))
     linkedin = Column(String(255))
     occupation = Column(String(255))
-    description = Column(String)
     company = Column(String(255))
     industry = Column(String(255))
     website = Column(String(255))

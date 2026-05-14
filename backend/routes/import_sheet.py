@@ -110,7 +110,15 @@ def import_from_sheet(body: ImportRequest, db: Session = Depends(get_db)):
             phone=row.get("phone_no", row.get("phone_number", row.get("phone", ""))) or None,
             linkedin=row.get("linkedin", "") or None,
             occupation=row.get("occupation", "") or None,
-            description=row.get("description", "") or None,
+            company=row.get("company", row.get("organization", "")) or None,
+            industry=row.get("industry", "") or None,
+            website=row.get("website", "") or None,
+            business_description=(
+                row.get("business_description")
+                or row.get("business description")
+                or row.get("description")
+                or None
+            ),
             image_url=image_url,
         )
         db.add(user)

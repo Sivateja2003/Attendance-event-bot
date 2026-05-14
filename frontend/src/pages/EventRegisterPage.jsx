@@ -5,7 +5,7 @@ import { apiFetch } from '../config'
 export default function EventRegisterPage() {
   const { eventId } = useParams()
 
-  const [form, setForm] = useState({ name: '', email: '', phone: '', linkedin: '', occupation: '', description: '', company: '', industry: '', website: '', business_description: '' })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', linkedin: '', occupation: '', company: '', industry: '', website: '', business_description: '' })
   const [preview, setPreview] = useState(null)
   const [uploadFile, setUploadFile] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -56,7 +56,6 @@ export default function EventRegisterPage() {
     if (form.phone.trim()) fd.append('phone', form.phone.trim())
     if (form.linkedin.trim()) fd.append('linkedin', form.linkedin.trim())
     if (form.occupation.trim()) fd.append('occupation', form.occupation.trim())
-    if (form.description.trim()) fd.append('description', form.description.trim())
     if (form.company.trim()) fd.append('company', form.company.trim())
     if (form.industry.trim()) fd.append('industry', form.industry.trim())
     if (form.website.trim()) fd.append('website', form.website.trim())
@@ -71,7 +70,7 @@ export default function EventRegisterPage() {
         showStatus('error', data.detail || 'Registration failed.')
       } else {
         showStatus('success', `Successfully registered for "${eventName || 'the event'}"! You're all set.`)
-        setForm({ name: '', email: '', phone: '', linkedin: '', occupation: '', description: '', company: '', industry: '', website: '', business_description: '' })
+        setForm({ name: '', email: '', phone: '', linkedin: '', occupation: '', company: '', industry: '', website: '', business_description: '' })
         setPreview(null)
         setUploadFile(null)
       }
@@ -137,13 +136,6 @@ export default function EventRegisterPage() {
             <label>LinkedIn Profile URL</label>
             <input name="linkedin" placeholder="https://linkedin.com/in/yourprofile"
               value={form.linkedin} onChange={handleField} disabled={submitting} />
-          </div>
-
-          <div className="sr-field">
-            <label>Description</label>
-            <textarea name="description" placeholder="Brief bio or description…"
-              value={form.description} onChange={handleField} disabled={submitting}
-              className="sr-textarea" rows={3} />
           </div>
 
           <div className="sr-row">

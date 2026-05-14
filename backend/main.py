@@ -24,7 +24,6 @@ def run_migrations():
             ("phone", "VARCHAR(50)"),
             ("linkedin", "VARCHAR(255)"),
             ("occupation", "VARCHAR(255)"),
-            ("description", "TEXT"),
             ("company", "VARCHAR(255)"),
             ("industry", "VARCHAR(255)"),
             ("website", "VARCHAR(255)"),
@@ -32,6 +31,17 @@ def run_migrations():
         ]:
             if col not in user_cols:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {ddl}"))
+
+        # Drop legacy "description" column (superseded by business_description)
+        if "description" in user_cols:
+            if dialect == "postgresql":
+                conn.execute(text("ALTER TABLE users DROP COLUMN IF EXISTS description"))
+            elif dialect == "sqlite":
+                # SQLite supports DROP COLUMN from 3.35+; older versions silently fail
+                try:
+                    conn.execute(text("ALTER TABLE users DROP COLUMN description"))
+                except Exception as e:
+                    print(f"[startup] could not drop legacy users.description: {e}")
 
         if "event_id" not in att_cols:
             conn.execute(text(

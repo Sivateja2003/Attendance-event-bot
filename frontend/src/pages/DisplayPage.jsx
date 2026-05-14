@@ -81,8 +81,9 @@ function PersonCard({ data }) {
             <DetailRow label="Email"       value={user.email} />
             <DetailRow label="Phone"       value={user.phone} />
             <DetailRow label="Occupation"  value={user.occupation} />
-            <DetailRow label="Description" value={user.description} />
+            <DetailRow label="Company"     value={user.company} />
             <DetailRow label="LinkedIn"    value={user.linkedin} />
+            <DetailRow label="About"       value={user.business_description} />
           </div>
         )}
         {isNotEnrolled && (
@@ -131,7 +132,8 @@ function _expandTokens(query) {
 function _scoreParticipant(p, query, tokens) {
   const fields = []
   if (p.occupation) fields.push({ text: _norm(p.occupation), w: 4, label: p.occupation })
-  if (p.description) fields.push({ text: _norm(p.description), w: 3, label: 'description' })
+  if (p.business_description) fields.push({ text: _norm(p.business_description), w: 3, label: 'business description' })
+  if (p.company) fields.push({ text: _norm(p.company), w: 3, label: p.company })
   if (p.linkedin) {
     const parts = p.linkedin.replace(/\/$/, '').split('/')
     const i = parts.indexOf('in')
@@ -162,7 +164,7 @@ function _scoreParticipant(p, query, tokens) {
     const [first, ...rest] = [...hits]
     reason = first === 'LinkedIn profile' ? 'Found in LinkedIn profile keywords'
            : first === 'email domain'     ? 'Matched via email domain'
-           : first === 'description'      ? 'Matched in personal description'
+           : first === 'business description' ? 'Matched in business description'
            : `Occupation: ${first}`
     if (rest.length) reason += ` · ${rest.length} more signal${rest.length > 1 ? 's' : ''}`
   }
@@ -200,7 +202,7 @@ async function bulkIndexParticipants(participants) {
       phone: p.phone || null,
       organization: p.company || p.occupation || 'Independent',
       role: p.occupation || (p.company ? 'Team member' : 'Attendee'),
-      detailed_profile: [p.description, p.business_description].filter(Boolean).join('\n\n') || null,
+      detailed_profile: p.business_description || null,
       linkedin_url: p.linkedin || null,
     }))
   if (!payload.length) return
@@ -229,7 +231,7 @@ function mergeRemoteResult(r, localById) {
     name: r.full_name,
     occupation: r.role,
     company: r.organization,
-    description: r.detailed_profile,
+    business_description: r.detailed_profile,
     linkedin: r.linkedin_url,
     score,
     reason,
@@ -288,12 +290,6 @@ function ParticipantDetailModal({ person, onClose }) {
                 </div>
               )}
             </div>
-            {p.description && (
-              <div className="dp-modal-bio">
-                <div className="dp-modal-bio-label">About</div>
-                <div className="dp-modal-bio-text">{p.description}</div>
-              </div>
-            )}
           </div>
         </div>
 
