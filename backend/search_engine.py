@@ -83,6 +83,7 @@ def _strip_noise(text: str) -> str:
 def _build_text(u: dict) -> str:
     parts = [
         u.get("role") or "",
+        u.get("industry") or "",
         u.get("organization") or "",
         u.get("detailed_profile") or "",
     ]
@@ -111,6 +112,7 @@ def _user_payload(u: dict) -> dict:
         "phone":              u.get("phone"),
         "organization":       u.get("company") or u.get("occupation") or "Independent",
         "role":               u.get("occupation") or u.get("industry") or "Member",
+        "industry":           u.get("industry") or "",
         "detailed_profile":   u.get("business_description"),
         "linkedin_url":       u.get("website") or u.get("linkedin"),
     }
@@ -154,9 +156,12 @@ class SearchEngine:
     def upsert(self, u: dict) -> None:
         uid = str(u["id"])
         payload = _clean_meta(_user_payload(u))
+        text = _build_text(payload)
+        if not text:
+            return
         self.index.upsert(vectors=[{
             "id":       uid,
-            "values":   self._embed(_build_text(payload)),
+            "values":   self._embed(text),
             "metadata": payload,
         }])
 
@@ -164,7 +169,12 @@ class SearchEngine:
         if not users:
             return
         payloads = [_clean_meta(_user_payload(u)) for u in users]
-        vectors  = self._embed_batch([_build_text(p) for p in payloads])
+        pairs = [(p, _build_text(p)) for p in payloads]
+        pairs = [(p, t) for p, t in pairs if t]   # skip empty profiles
+        if not pairs:
+            return
+        payloads, texts = zip(*pairs)
+        vectors  = self._embed_batch(list(texts))
         batch = [
             {"id": p["_original_id"], "values": v, "metadata": p}
             for p, v in zip(payloads, vectors)
@@ -204,6 +214,14 @@ class SearchEngine:
                 "score":            round(min(m["score"], 1.0), 4),
             })
         return sorted(results, key=lambda r: r["score"], reverse=True)
+
+    def reindex_all_from_db(self, users: List[dict]) -> int:
+        """Re-embed all users from source DB records (picks up new fields)."""
+        if not users:
+            return 0
+        self.upsert_bulk(users)
+        logger.info("[search] Full reindex complete: %d users", len(users))
+        return len(users)
 
     def reindex_by_ids(self, ids: List[str]) -> int:
         """Re-embed specific vectors using their existing Pinecone metadata."""

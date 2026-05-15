@@ -2,10 +2,13 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from auth import require_admin
+from database import get_db
 from groq_client import parse_query
-from search_engine import get_engine
+from models import User
+from search_engine import get_engine, user_to_dict
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
@@ -20,6 +23,16 @@ def reindex(body: ReindexRequest):
     if engine is None:
         raise HTTPException(status_code=503, detail="Search engine not initialised.")
     count = engine.reindex_by_ids(body.ids)
+    return {"reindexed": count}
+
+
+@router.post("/reindex-all", dependencies=[Depends(require_admin)])
+def reindex_all(db: Session = Depends(get_db)):
+    engine = get_engine()
+    if engine is None:
+        raise HTTPException(status_code=503, detail="Search engine not initialised.")
+    users = [user_to_dict(u) for u in db.query(User).all()]
+    count = engine.reindex_all_from_db(users)
     return {"reindexed": count}
 
 
