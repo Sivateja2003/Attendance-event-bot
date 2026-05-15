@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import logging
 from typing import Optional, List, Dict, Any
@@ -14,7 +15,7 @@ PINECONE_CLOUD    = os.getenv("PINECONE_CLOUD", "aws")
 PINECONE_REGION   = os.getenv("PINECONE_REGION", "us-east-1")
 EMBEDDING_MODEL   = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
 VECTOR_SIZE       = int(os.getenv("VECTOR_SIZE", "384"))
-SCORE_THRESHOLD   = float(os.getenv("SCORE_THRESHOLD", "0.25"))
+SCORE_THRESHOLD   = float(os.getenv("SCORE_THRESHOLD", "0.45"))
 
 _engine: Optional["SearchEngine"] = None
 
@@ -72,13 +73,21 @@ def bg_delete(user_id: int) -> None:
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
+def _strip_noise(text: str) -> str:
+    """Remove emoji, non-ASCII symbols, and collapse whitespace."""
+    text = text.encode("ascii", "ignore").decode("ascii")
+    text = re.sub(r"[^\w\s.,&@()\-/]", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def _build_text(u: dict) -> str:
     parts = [
         u.get("role") or "",
         u.get("organization") or "",
         u.get("detailed_profile") or "",
     ]
-    return " ".join(p for p in parts if p).strip()
+    raw = " ".join(p for p in parts if p).strip()
+    return _strip_noise(raw)
 
 
 def _clean_meta(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -192,6 +201,22 @@ class SearchEngine:
                 "experience_level": meta.get("experience_level"),
                 "detailed_profile": meta.get("detailed_profile"),
                 "linkedin_url":     meta.get("linkedin_url"),
-                "score":            round(m["score"], 4),
+                "score":            round(min(m["score"], 1.0), 4),
             })
         return sorted(results, key=lambda r: r["score"], reverse=True)
+
+    def reindex_by_ids(self, ids: List[str]) -> int:
+        """Re-embed specific vectors using their existing Pinecone metadata."""
+        fetch_result = self.index.fetch(ids=ids)
+        vectors = fetch_result.get("vectors", {})
+        batch = []
+        for vid, vdata in vectors.items():
+            meta = vdata.get("metadata", {})
+            text = _build_text(meta)
+            if not text:
+                continue
+            batch.append({"id": vid, "values": self._embed(text), "metadata": meta})
+        if batch:
+            self.index.upsert(vectors=batch)
+        logger.info("[search] Reindexed %d vectors", len(batch))
+        return len(batch)

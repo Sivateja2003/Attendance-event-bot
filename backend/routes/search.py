@@ -1,11 +1,26 @@
-from typing import Optional
+from typing import List, Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
+from auth import require_admin
 from groq_client import parse_query
 from search_engine import get_engine
 
 router = APIRouter(prefix="/api/search", tags=["search"])
+
+
+class ReindexRequest(BaseModel):
+    ids: List[str]
+
+
+@router.post("/reindex", dependencies=[Depends(require_admin)])
+def reindex(body: ReindexRequest):
+    engine = get_engine()
+    if engine is None:
+        raise HTTPException(status_code=503, detail="Search engine not initialised.")
+    count = engine.reindex_by_ids(body.ids)
+    return {"reindexed": count}
 
 
 @router.get("")
