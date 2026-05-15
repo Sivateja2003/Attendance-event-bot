@@ -35,3 +35,4 @@ Thumbs.db
 
 # Logs
 backend/install_log.txt
+backend/member_profiles.csv
