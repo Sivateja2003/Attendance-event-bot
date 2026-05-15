@@ -9,10 +9,20 @@ set -e
 # ══════════════════════════════════════════════════════════════════════════════
 #  FILL IN THESE VALUES BEFORE RUNNING
 # ══════════════════════════════════════════════════════════════════════════════
-REPO_URL="https://github.com/Mohith100612/Attendance-using-face-recogination.git"
+REPO_URL="https://github.com/Mohith100612/Attendance-event-bot.git"
 DB_PASSWORD="FaceAuthDB123"
 ADMIN_EMAIL="admin@gmail.com"
 ADMIN_PASSWORD="admin@1234"
+
+# Vector search (Pinecone) — leave blank to disable semantic/participants search
+PINECONE_API_KEY=""
+PINECONE_INDEX="attendees"
+PINECONE_CLOUD="aws"
+PINECONE_REGION="us-east-1"
+
+# Groq (natural-language query parsing) — leave blank to disable query expansion
+GROQ_API_KEY=""
+GROQ_MODEL="llama-3.1-8b-instant"
 # ══════════════════════════════════════════════════════════════════════════════
 
 APP_DIR="/opt/face_auth"
@@ -75,6 +85,16 @@ APP_BASE_URL=http://${PUBLIC_IP}
 CONFIDENCE_THRESHOLD=0.55
 MATCH_THRESHOLD=0.72
 LIVENESS_CHECK=False
+
+# Vector search (Pinecone)
+PINECONE_API_KEY=${PINECONE_API_KEY}
+PINECONE_INDEX=${PINECONE_INDEX}
+PINECONE_CLOUD=${PINECONE_CLOUD}
+PINECONE_REGION=${PINECONE_REGION}
+
+# Groq query parsing
+GROQ_API_KEY=${GROQ_API_KEY}
+GROQ_MODEL=${GROQ_MODEL}
 EOF
 chmod 600 "$WORK_DIR/backend/.env"
 
