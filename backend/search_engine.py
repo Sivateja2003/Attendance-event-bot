@@ -15,7 +15,7 @@ PINECONE_CLOUD    = os.getenv("PINECONE_CLOUD", "aws")
 PINECONE_REGION   = os.getenv("PINECONE_REGION", "us-east-1")
 EMBEDDING_MODEL   = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
 VECTOR_SIZE       = int(os.getenv("VECTOR_SIZE", "384"))
-SCORE_THRESHOLD   = float(os.getenv("SCORE_THRESHOLD", "0.45"))
+SCORE_THRESHOLD   = float(os.getenv("SCORE_THRESHOLD", "0.55"))
 
 _engine: Optional["SearchEngine"] = None
 

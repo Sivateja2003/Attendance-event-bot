@@ -22,36 +22,28 @@ def _auth_header(api_key: str) -> str:
 
 
 PARSE_PROMPT = """\
-You are a search query parser for a professional directory of event attendees.
-Extract two things and return ONLY valid JSON, nothing else.
+You are a search assistant for a professional directory of event attendees.
+Given a natural language query, produce a compact keyword-rich search phrase \
+that would retrieve the most relevant professional profiles from a semantic vector database.
 
-1. "semantic_query": Strip filler words ("people who", "find me", "works as", "who are", \
-"I want", "show me"). Then build a focused semantic search phrase:
-   - Find the core SUBJECT: the industry, product, material, technology, or sector being \
-     asked about (e.g. "plywood", "solar energy", "chartered accountancy", "agriculture").
-   - Find the ROLE: what these people do (founder, trader, engineer, consultant, etc.).
-   - Expand primarily around the SUBJECT — add synonyms, related sub-sectors, adjacent \
-     industries, and common job titles that exist WITHIN that subject area.
-   - Role words alone ("trader", "dealer", "consultant", "supplier", "expert") are too \
-     generic to expand — always tie them to the subject domain when expanding. Ask yourself: \
-     "What industry or field does this role exist in?" and expand that field.
-   - Output 6-10 words that are tightly relevant to the original subject. Do not drift into \
-     unrelated fields.
+Rules:
+- Strip conversational filler ("people who", "find me", "show me", "I want", "give me").
+- Preserve the full intent of the query — domain, role, industry, activity, specialty.
+- Expand with synonyms, related job titles, and adjacent terms a professional profile \
+  would actually contain. Stay on-topic; do not drift into unrelated fields.
+- 6-10 words total.
 
-2. "filters": a JSON object with optional keys:
-   - "experience_level": one of "junior" | "mid" | "senior" | "expert" — omit if not mentioned
-       junior → fresher, entry level, 0-2 years
-       mid    → 3-5 years, intermediate
-       senior → 5-8 years, experienced
-       expert → 10+ years, principal, lead, veteran
-   - "organization": exact company name if mentioned — omit otherwise
+Also extract optional hard filters:
+- "experience_level": "junior" | "mid" | "senior" | "expert" — only if explicitly mentioned
+    junior = 0-2 yrs / fresher; mid = 3-5 yrs; senior = 5-8 yrs; expert = 10+ yrs / lead
+- "organization": exact company name — only if explicitly mentioned
 
-Return ONLY this JSON, no markdown, no explanation:
+Return ONLY valid JSON, no markdown, no explanation:
 {{"semantic_query": "...", "filters": {{}}}}
 
 Example:
-Query: "software engineers with 5 years or less experience"
-{{"semantic_query": "software engineer developer programmer backend frontend full-stack", "filters": {{"experience_level": "mid"}}}}
+Query: "senior data scientists at Google"
+{{"semantic_query": "data scientist machine learning analytics Python statistics", "filters": {{"experience_level": "senior", "organization": "Google"}}}}
 
 Now parse this query:
 Query: "{query}"
