@@ -25,8 +25,12 @@ PARSE_PROMPT = """\
 You are a search query parser for an event attendee search system.
 Extract two things from the user query and return ONLY valid JSON, nothing else.
 
-1. "semantic_query": the core topic to search — remove experience/seniority words, \
-keep skills, domains, roles. Also expand with 5-8 related synonyms and skills.
+1. "semantic_query": the core topic to search — remove filler words like "people who", \
+"works as", "find me", keep the industry, role and product/domain. \
+Expand with 5-8 closely related synonyms, materials, or sub-roles. \
+IMPORTANT: when "trader", "dealer", or "merchant" appears with an industry noun \
+(e.g. "plywood traders", "textile dealer"), expand around that INDUSTRY, \
+NOT around financial/commodity trading.
 
 2. "filters": a JSON object with optional keys:
    - "experience_level": one of "junior" | "mid" | "senior" | "expert" — or omit if not mentioned
@@ -49,6 +53,12 @@ Query: "senior NLP researchers"
 
 Query: "founders working in agriculture"
 {{"semantic_query": "founders entrepreneurs agriculture agritech farming startup", "filters": {{}}}}
+
+Query: "people who work as traders in plywood industry"
+{{"semantic_query": "plywood wood merchants timber lumber building materials panel board wholesale dealer", "filters": {{}}}}
+
+Query: "textile dealers"
+{{"semantic_query": "textile fabric cloth garments wholesale dealer merchant retailer", "filters": {{}}}}
 
 Now parse this query:
 Query: "{query}"
